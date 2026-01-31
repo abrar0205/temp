@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This report explores the challenge of inferring blood type probabilities in family trees when only partial information is available. We develop a Bayesian network model that represents genetic inheritance causally, from parental alleles to child alleles to observable blood types. The model handles three evidence types including direct tests, mixed sample tests, and paired tests with potential labeling errors. Through evaluation on 29 test cases of varying complexity, we demonstrate that the causal modeling approach produces correct probability distributions while keeping the model structure clean and modular. A key finding is that modeling in the causal direction yields simpler probability specifications than the diagnostic direction, even when the inference goal is to determine causes from observed effects.
+This report explores how to infer blood type probabilities in family trees when only partial information is available. We develop a Bayesian network model that represents genetic inheritance causally, from parental alleles to child alleles to observable blood types. The model handles three evidence types including direct tests, mixed sample tests, and paired tests with potential labeling errors. We tested this approach on 29 problems of varying complexity and found that it produces correct probability distributions while keeping the model structure clean and modular. A key finding is that modeling in the causal direction yields simpler probability specifications than the diagnostic direction, even when the inference goal is to determine causes from observed effects.
 
 ## 1 Introduction
 
@@ -76,7 +76,7 @@ Figure 1 shows the network structure for a minimal family with father, mother, a
 
 When we first approached this problem, it seemed natural to draw edges from test results toward blood types since we observe tests and want to infer types. However, this diagnostic direction creates problems.
 
-With causal edges, the conditional probability tables are natural and intuitive. For example, the question "what allele does a parent with genotype AO pass?" has an obvious answer of 50% for each allele. The reverse question "if the child has allele A, what was the parent's genotype?" requires Bayes rule and depends on population priors.
+With causal edges, the conditional probability tables are natural and easy to specify. For example, the question "what allele does a parent with genotype AO pass?" has an obvious answer of 50% for each allele. The reverse question "if the child has allele A, what was the parent's genotype?" requires Bayes rule and depends on population priors.
 
 Causal modeling also keeps the components separate. The inheritance rules, the genotype to phenotype mapping, and the test semantics are all independent pieces of domain knowledge. In the diagnostic direction, these would become tangled together.
 
@@ -136,7 +136,7 @@ Figure 2 shows how the problem categories compare in terms of complexity. The Ca
                     Figure 2: Results across problem categories
 ```
 
-The fact that all categories achieved perfect accuracy demonstrates that our causal modeling approach handles both simple and complex scenarios effectively.
+Since all categories achieved perfect accuracy, we are confident that our causal modeling approach handles both simple and complex scenarios well.
 
 ## 5 Discussion
 
@@ -150,7 +150,7 @@ Another important finding is that intermediate nodes like our contribution nodes
 
 We chose to use the pgmpy library for Bayesian network construction and inference. This allowed us to focus on the modeling aspects rather than implementing inference algorithms from scratch. Variable elimination in pgmpy provided exact inference which was important for validating correctness.
 
-We represented each problem in JSON format which was straightforward to parse. The family tree was represented as a list of parent child relationships, and we used topological sorting to ensure parents were processed before children when building the network.
+We represented each problem in JSON format which was simple to parse. The family tree was represented as a list of parent child relationships, and we used topological sorting to ensure parents were processed before children when building the network.
 
 For paired tests, our initial attempt modeled the two results as separate nodes with independent noise. This failed because it did not capture the correlation that both results are swapped together or neither is swapped. Switching to a joint node fixed this problem.
 
@@ -178,7 +178,7 @@ The broader lesson from this work is that when building probabilistic models for
 
 ## A Extra Comments
 
-1. The format of problem files (JSON) is not discussed in detail because the parsing was straightforward and presented no interesting challenges.
+1. The format of problem files (JSON) is not discussed in detail because the parsing was simple and presented no interesting challenges.
 
 2. Implementation details like function names and class structure are omitted because they are what we call "don't care choices" that do not affect the correctness of the solution.
 
