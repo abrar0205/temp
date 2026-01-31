@@ -1,0 +1,222 @@
+// Universal Multi-Confirmation Trading Strategy v1.0
+// Backtesting Version for TradingView Strategy Tester
+// TradingView Pine Script v5
+//
+// This is the strategy version of the UMCI indicator
+// Use this for backtesting on TradingView
+
+//@version=5
+strategy("Universal Multi-Confirmation Strategy [v1.0]", 
+         shorttitle="UMCI Strategy",
+         overlay=true, 
+         initial_capital=100000,
+         default_qty_type=strategy.percent_of_equity,
+         default_qty_value=10,
+         commission_type=strategy.commission.percent,
+         commission_value=0.02,  // 0.02% commission (typical for Indian markets with discount brokers)
+         slippage=2,
+         pyramiding=0)
+
+// ============================================================================
+// INPUT PARAMETERS
+// ============================================================================
+
+// Trend Parameters
+trendGroup = "Trend Settings"
+fastEMA = input.int(9, title="Fast EMA Period", minval=2, maxval=50, group=trendGroup)
+slowEMA = input.int(21, title="Slow EMA Period", minval=5, maxval=100, group=trendGroup)
+superTrendPeriod = input.int(10, title="SuperTrend Period", minval=1, maxval=50, group=trendGroup)
+superTrendMult = input.float(3.0, title="SuperTrend Multiplier", minval=0.5, maxval=5.0, step=0.1, group=trendGroup)
+
+// Momentum Parameters
+momentumGroup = "Momentum Settings"
+rsiPeriod = input.int(14, title="RSI Period", minval=2, maxval=50, group=momentumGroup)
+rsiOversold = input.int(40, title="RSI Oversold Level", minval=10, maxval=50, group=momentumGroup)
+rsiOverbought = input.int(60, title="RSI Overbought Level", minval=50, maxval=90, group=momentumGroup)
+
+// Volatility Parameters
+volatilityGroup = "Volatility Settings"
+atrPeriod = input.int(14, title="ATR Period", minval=1, maxval=50, group=volatilityGroup)
+atrMinMultiplier = input.float(0.5, title="ATR Min Multiplier (Filter Low Vol)", minval=0.1, maxval=2.0, step=0.1, group=volatilityGroup)
+atrMaxMultiplier = input.float(3.0, title="ATR Max Multiplier (Filter High Vol)", minval=1.0, maxval=5.0, step=0.1, group=volatilityGroup)
+
+// Volume Parameters
+volumeGroup = "Volume Settings"
+useVolumeFilter = input.bool(true, title="Use Volume Confirmation", group=volumeGroup)
+obvEMAPeriod = input.int(20, title="OBV EMA Period", minval=5, maxval=50, group=volumeGroup)
+
+// Risk Management Parameters
+riskGroup = "Risk Management"
+stopLossATRMult = input.float(2.0, title="Stop Loss (ATR Multiplier)", minval=0.5, maxval=5.0, step=0.1, group=riskGroup)
+takeProfitATRMult = input.float(3.0, title="Take Profit (ATR Multiplier)", minval=1.0, maxval=10.0, step=0.5, group=riskGroup)
+useTrailingStop = input.bool(false, title="Use Trailing Stop", group=riskGroup)
+trailingStopATRMult = input.float(1.5, title="Trailing Stop (ATR Multiplier)", minval=0.5, maxval=3.0, step=0.1, group=riskGroup)
+
+// Backtest Date Range
+backtestGroup = "Backtest Settings"
+startDate = input.time(timestamp("2021-01-01"), title="Start Date", group=backtestGroup)
+endDate = input.time(timestamp("2026-12-31"), title="End Date", group=backtestGroup)
+
+// ============================================================================
+// DATE FILTER
+// ============================================================================
+
+inDateRange = time >= startDate and time <= endDate
+
+// ============================================================================
+// TREND CALCULATIONS
+// ============================================================================
+
+// EMA Calculations
+emaFast = ta.ema(close, fastEMA)
+emaSlow = ta.ema(close, slowEMA)
+
+// EMA Trend Direction
+emaTrendUp = emaFast > emaSlow
+emaTrendDown = emaFast < emaSlow
+
+// SuperTrend Calculation
+atr = ta.atr(superTrendPeriod)
+upperBand = hl2 + (superTrendMult * atr)
+lowerBand = hl2 - (superTrendMult * atr)
+
+var float superTrendUpperBand = na
+var float superTrendLowerBand = na
+var int superTrendDirection = 1
+
+superTrendLowerBand := close[1] > nz(superTrendLowerBand[1], lowerBand) ? math.max(lowerBand, nz(superTrendLowerBand[1], lowerBand)) : lowerBand
+superTrendUpperBand := close[1] < nz(superTrendUpperBand[1], upperBand) ? math.min(upperBand, nz(superTrendUpperBand[1], upperBand)) : upperBand
+
+superTrendDirection := close > nz(superTrendUpperBand[1], upperBand) ? 1 : close < nz(superTrendLowerBand[1], lowerBand) ? -1 : nz(superTrendDirection[1], 1)
+
+superTrend = superTrendDirection == 1 ? superTrendLowerBand : superTrendUpperBand
+superTrendBullish = superTrendDirection == 1
+
+// Combined Trend Signal
+strongUptrend = emaTrendUp and superTrendBullish
+strongDowntrend = emaTrendDown and not superTrendBullish
+
+// ============================================================================
+// MOMENTUM CALCULATIONS
+// ============================================================================
+
+rsi = ta.rsi(close, rsiPeriod)
+rsiBullish = rsi > rsiOversold and rsi < rsiOverbought and rsi > rsi[1]
+rsiBearish = rsi > rsiOversold and rsi < rsiOverbought and rsi < rsi[1]
+rsiOversoldCondition = rsi < rsiOversold
+rsiOverboughtCondition = rsi > rsiOverbought
+
+// ============================================================================
+// VOLATILITY FILTER
+// ============================================================================
+
+atrVolatility = ta.atr(atrPeriod)
+atr20 = ta.sma(atrVolatility, 20)
+atrRatio = atrVolatility / atr20
+volatilityOK = atrRatio >= atrMinMultiplier and atrRatio <= atrMaxMultiplier
+
+// ============================================================================
+// VOLUME CALCULATIONS
+// ============================================================================
+
+obv = ta.obv
+obvEMA = ta.ema(obv, obvEMAPeriod)
+volumeConfirmBull = not useVolumeFilter or (obv > obvEMA)
+volumeConfirmBear = not useVolumeFilter or (obv < obvEMA)
+
+// ============================================================================
+// SIGNAL GENERATION
+// ============================================================================
+
+buySignal = strongUptrend and rsiBullish and volatilityOK and volumeConfirmBull and not strongUptrend[1]
+sellSignal = strongDowntrend and rsiBearish and volatilityOK and volumeConfirmBear and not strongDowntrend[1]
+exitLong = strongDowntrend or rsiOverboughtCondition
+exitShort = strongUptrend or rsiOversoldCondition
+
+// ============================================================================
+// STRATEGY EXECUTION
+// ============================================================================
+
+// Calculate Stop Loss and Take Profit
+longStopLoss = close - (atrVolatility * stopLossATRMult)
+longTakeProfit = close + (atrVolatility * takeProfitATRMult)
+shortStopLoss = close + (atrVolatility * stopLossATRMult)
+shortTakeProfit = close - (atrVolatility * takeProfitATRMult)
+
+// Entry Logic
+if inDateRange
+    // Long Entry
+    if buySignal and strategy.position_size == 0
+        strategy.entry("Long", strategy.long)
+        strategy.exit("Long Exit", "Long", stop=longStopLoss, limit=longTakeProfit)
+    
+    // Short Entry
+    if sellSignal and strategy.position_size == 0
+        strategy.entry("Short", strategy.short)
+        strategy.exit("Short Exit", "Short", stop=shortStopLoss, limit=shortTakeProfit)
+    
+    // Exit Logic
+    if strategy.position_size > 0 and exitLong
+        strategy.close("Long", comment="Exit Signal")
+    
+    if strategy.position_size < 0 and exitShort
+        strategy.close("Short", comment="Exit Signal")
+
+// Trailing Stop (optional)
+if useTrailingStop
+    trailAmount = atrVolatility * trailingStopATRMult
+    strategy.exit("Long Trail", "Long", trail_offset=trailAmount, trail_points=trailAmount)
+    strategy.exit("Short Trail", "Short", trail_offset=trailAmount, trail_points=trailAmount)
+
+// ============================================================================
+// VISUAL DISPLAY
+// ============================================================================
+
+// Plot EMAs
+plot(emaFast, color=color.new(color.blue, 0), linewidth=1, title="Fast EMA")
+plot(emaSlow, color=color.new(color.orange, 0), linewidth=1, title="Slow EMA")
+
+// Plot SuperTrend
+plot(superTrend, color=superTrendBullish ? color.green : color.red, linewidth=2, title="SuperTrend")
+
+// Trend Background
+bgcolor(strongUptrend ? color.new(color.green, 90) : strongDowntrend ? color.new(color.red, 90) : na)
+
+// Signals
+plotshape(buySignal, title="Buy Signal", location=location.belowbar, style=shape.triangleup, size=size.normal, color=color.green, text="BUY")
+plotshape(sellSignal, title="Sell Signal", location=location.abovebar, style=shape.triangledown, size=size.normal, color=color.red, text="SELL")
+
+// ============================================================================
+// PERFORMANCE TABLE
+// ============================================================================
+
+var table perfTable = table.new(position.bottom_right, 2, 8, bgcolor=color.new(color.black, 80), border_width=1)
+
+if barstate.islast
+    table.cell(perfTable, 0, 0, "UMCI Strategy", text_color=color.white, bgcolor=color.new(color.blue, 50))
+    table.cell(perfTable, 1, 0, "Performance", text_color=color.white, bgcolor=color.new(color.blue, 50))
+    
+    table.cell(perfTable, 0, 1, "Net Profit", text_color=color.white)
+    netProfit = strategy.netprofit
+    table.cell(perfTable, 1, 1, str.tostring(netProfit, "#.##"), text_color=netProfit > 0 ? color.green : color.red)
+    
+    table.cell(perfTable, 0, 2, "Win Rate", text_color=color.white)
+    winRate = strategy.wintrades / math.max(strategy.closedtrades, 1) * 100
+    table.cell(perfTable, 1, 2, str.tostring(winRate, "#.##") + "%", text_color=winRate >= 50 ? color.green : color.red)
+    
+    table.cell(perfTable, 0, 3, "Profit Factor", text_color=color.white)
+    profitFactor = strategy.grossprofit / math.max(math.abs(strategy.grossloss), 1)
+    table.cell(perfTable, 1, 3, str.tostring(profitFactor, "#.##"), text_color=profitFactor >= 1.5 ? color.green : color.red)
+    
+    table.cell(perfTable, 0, 4, "Total Trades", text_color=color.white)
+    table.cell(perfTable, 1, 4, str.tostring(strategy.closedtrades), text_color=color.white)
+    
+    table.cell(perfTable, 0, 5, "Winning Trades", text_color=color.white)
+    table.cell(perfTable, 1, 5, str.tostring(strategy.wintrades), text_color=color.green)
+    
+    table.cell(perfTable, 0, 6, "Losing Trades", text_color=color.white)
+    table.cell(perfTable, 1, 6, str.tostring(strategy.losstrades), text_color=color.red)
+    
+    table.cell(perfTable, 0, 7, "Max Drawdown", text_color=color.white)
+    maxDD = strategy.max_drawdown
+    table.cell(perfTable, 1, 7, str.tostring(maxDD, "#.##"), text_color=color.red)

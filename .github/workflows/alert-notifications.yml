@@ -1,0 +1,215 @@
+name: Trading Alert Notifications
+
+on:
+  # Triggered by other workflows or manually
+  workflow_dispatch:
+    inputs:
+      alert_type:
+        description: 'Type of alert'
+        required: true
+        type: choice
+        options:
+          - signal
+          - drawdown
+          - performance
+          - error
+      message:
+        description: 'Alert message'
+        required: true
+      symbol:
+        description: 'Symbol (if applicable)'
+        required: false
+      signal_direction:
+        description: 'Signal direction (LONG/SHORT/EXIT)'
+        required: false
+        type: choice
+        options:
+          - LONG
+          - SHORT
+          - EXIT
+          - NONE
+  
+  # Can be called from other workflows
+  workflow_call:
+    inputs:
+      alert_type:
+        type: string
+        required: true
+      message:
+        type: string
+        required: true
+      symbol:
+        type: string
+        required: false
+    secrets:
+      TELEGRAM_BOT_TOKEN:
+        required: false
+      TELEGRAM_CHAT_ID:
+        required: false
+      DISCORD_WEBHOOK_URL:
+        required: false
+      SLACK_WEBHOOK_URL:
+        required: false
+
+jobs:
+  send-alerts:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Prepare alert message
+        id: prepare
+        run: |
+          ALERT_TYPE="${{ inputs.alert_type || github.event.inputs.alert_type }}"
+          MESSAGE="${{ inputs.message || github.event.inputs.message }}"
+          SYMBOL="${{ inputs.symbol || github.event.inputs.symbol }}"
+          DIRECTION="${{ github.event.inputs.signal_direction || 'NONE' }}"
+          TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          
+          # Set emoji based on alert type
+          case $ALERT_TYPE in
+            signal)
+              if [ "$DIRECTION" = "LONG" ]; then
+                EMOJI="🟢"
+              elif [ "$DIRECTION" = "SHORT" ]; then
+                EMOJI="🔴"
+              else
+                EMOJI="⚪"
+              fi
+              ;;
+            drawdown)
+              EMOJI="⚠️"
+              ;;
+            performance)
+              EMOJI="📊"
+              ;;
+            error)
+              EMOJI="❌"
+              ;;
+            *)
+              EMOJI="📌"
+              ;;
+          esac
+          
+          # Create formatted message
+          FORMATTED_MSG="$EMOJI **Ultimate Trading System Alert**
+          
+          **Type:** $ALERT_TYPE
+          **Symbol:** ${SYMBOL:-N/A}
+          **Direction:** ${DIRECTION}
+          **Message:** $MESSAGE
+          **Time:** $TIMESTAMP"
+          
+          echo "formatted_message<<EOF" >> $GITHUB_OUTPUT
+          echo "$FORMATTED_MSG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "emoji=$EMOJI" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+      
+      # Telegram Notification
+      - name: Send Telegram notification
+        if: ${{ vars.TELEGRAM_BOT_TOKEN != '' || secrets.TELEGRAM_BOT_TOKEN != '' }}
+        continue-on-error: true
+        run: |
+          TELEGRAM_TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN || vars.TELEGRAM_BOT_TOKEN }}"
+          TELEGRAM_CHAT="${{ secrets.TELEGRAM_CHAT_ID || vars.TELEGRAM_CHAT_ID }}"
+          
+          if [ -n "$TELEGRAM_TOKEN" ] && [ -n "$TELEGRAM_CHAT" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+              -d "chat_id=${TELEGRAM_CHAT}" \
+              -d "text=${{ steps.prepare.outputs.formatted_message }}" \
+              -d "parse_mode=Markdown"
+            echo "✅ Telegram notification sent"
+          else
+            echo "⚠️ Telegram not configured"
+          fi
+      
+      # Discord Notification
+      - name: Send Discord notification
+        if: ${{ vars.DISCORD_WEBHOOK_URL != '' || secrets.DISCORD_WEBHOOK_URL != '' }}
+        continue-on-error: true
+        run: |
+          DISCORD_WEBHOOK="${{ secrets.DISCORD_WEBHOOK_URL || vars.DISCORD_WEBHOOK_URL }}"
+          
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            curl -s -X POST "$DISCORD_WEBHOOK" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "content": "${{ steps.prepare.outputs.formatted_message }}",
+                "username": "Trading Bot"
+              }'
+            echo "✅ Discord notification sent"
+          else
+            echo "⚠️ Discord not configured"
+          fi
+      
+      # Slack Notification
+      - name: Send Slack notification
+        if: ${{ vars.SLACK_WEBHOOK_URL != '' || secrets.SLACK_WEBHOOK_URL != '' }}
+        continue-on-error: true
+        run: |
+          SLACK_WEBHOOK="${{ secrets.SLACK_WEBHOOK_URL || vars.SLACK_WEBHOOK_URL }}"
+          
+          if [ -n "$SLACK_WEBHOOK" ]; then
+            curl -s -X POST "$SLACK_WEBHOOK" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "text": "${{ steps.prepare.outputs.formatted_message }}"
+              }'
+            echo "✅ Slack notification sent"
+          else
+            echo "⚠️ Slack not configured"
+          fi
+      
+      # Email Notification (using GitHub's built-in notification)
+      - name: Log alert for email digest
+        run: |
+          mkdir -p alerts
+          
+          echo "---" >> alerts/alert_log.md
+          echo "**${{ steps.prepare.outputs.timestamp }}**" >> alerts/alert_log.md
+          echo "" >> alerts/alert_log.md
+          echo "${{ steps.prepare.outputs.formatted_message }}" >> alerts/alert_log.md
+          echo "" >> alerts/alert_log.md
+      
+      # GitHub Issue for critical alerts
+      - name: Create GitHub issue for critical alerts
+        if: ${{ inputs.alert_type == 'error' || inputs.alert_type == 'drawdown' }}
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            // Only create issue for critical alerts
+            const alertType = '${{ inputs.alert_type || github.event.inputs.alert_type }}';
+            const message = '${{ inputs.message || github.event.inputs.message }}';
+            const symbol = '${{ inputs.symbol || github.event.inputs.symbol }}';
+            
+            if (alertType === 'error' || alertType === 'drawdown') {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `⚠️ Trading Alert: ${alertType.toUpperCase()} - ${symbol || 'System'}`,
+                body: `## Alert Details
+                
+**Type:** ${alertType}
+**Symbol:** ${symbol || 'N/A'}
+**Message:** ${message}
+**Time:** ${new Date().toISOString()}
+
+---
+*This issue was automatically created by the Trading Alert System*`,
+                labels: ['trading-alert', alertType]
+              });
+              console.log('GitHub issue created');
+            }
+      
+      - name: Summary
+        run: |
+          echo "## ${{ steps.prepare.outputs.emoji }} Alert Sent" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.prepare.outputs.formatted_message }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Notification Channels" >> $GITHUB_STEP_SUMMARY
+          echo "- Telegram: ${{ vars.TELEGRAM_BOT_TOKEN != '' && '✅' || '❌ Not configured' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Discord: ${{ vars.DISCORD_WEBHOOK_URL != '' && '✅' || '❌ Not configured' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Slack: ${{ vars.SLACK_WEBHOOK_URL != '' && '✅' || '❌ Not configured' }}" >> $GITHUB_STEP_SUMMARY

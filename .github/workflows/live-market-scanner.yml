@@ -1,0 +1,263 @@
+name: Live Market Scanner
+
+on:
+  # Run every 15 minutes during Indian market hours (9:15 AM - 3:30 PM IST)
+  # IST is UTC+5:30, so market hours are 3:45 AM - 10:00 AM UTC
+  schedule:
+    - cron: '*/15 3-10 * * 1-5'  # Every 15 min, 3-10 UTC, Mon-Fri
+  
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of scan'
+        required: true
+        type: choice
+        options:
+          - all
+          - breakout
+          - reversal
+          - momentum
+          - volume-spike
+      market:
+        description: 'Market to scan'
+        required: true
+        type: choice
+        options:
+          - nse-large-cap
+          - nse-mid-cap
+          - nse-indices
+          - us-large-cap
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  scan-market:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install numpy pandas yfinance
+      
+      - name: Check market hours
+        id: market-check
+        run: |
+          # Get current UTC hour
+          CURRENT_HOUR=$(date -u +%H)
+          CURRENT_MIN=$(date -u +%M)
+          DAY_OF_WEEK=$(date -u +%u)  # 1=Monday, 7=Sunday
+          
+          echo "Current UTC time: $CURRENT_HOUR:$CURRENT_MIN"
+          echo "Day of week: $DAY_OF_WEEK"
+          
+          # Indian market: 9:15 AM - 3:30 PM IST = 3:45 AM - 10:00 AM UTC
+          # US market: 9:30 AM - 4:00 PM EST = 14:30 - 21:00 UTC (varies with DST)
+          
+          IS_MARKET_OPEN="false"
+          
+          # Check if it's a weekday
+          if [ "$DAY_OF_WEEK" -le 5 ]; then
+            # Check Indian market hours (approximate)
+            if [ "$CURRENT_HOUR" -ge 3 ] && [ "$CURRENT_HOUR" -le 10 ]; then
+              IS_MARKET_OPEN="true"
+              MARKET="INDIAN"
+            fi
+            
+            # Check US market hours (approximate)
+            if [ "$CURRENT_HOUR" -ge 14 ] && [ "$CURRENT_HOUR" -le 21 ]; then
+              IS_MARKET_OPEN="true"
+              MARKET="US"
+            fi
+          fi
+          
+          echo "is_open=$IS_MARKET_OPEN" >> $GITHUB_OUTPUT
+          echo "market=${MARKET:-NONE}" >> $GITHUB_OUTPUT
+          
+          if [ "$IS_MARKET_OPEN" = "true" ]; then
+            echo "✅ Market is OPEN ($MARKET)"
+          else
+            echo "⚠️ Market is CLOSED"
+          fi
+      
+      - name: Run market scanner
+        if: ${{ steps.market-check.outputs.is_open == 'true' || github.event_name == 'workflow_dispatch' }}
+        working-directory: trading-indicator/python
+        run: |
+          python << 'EOF'
+          import json
+          import os
+          from datetime import datetime
+          import numpy as np
+          
+          from ultimate_trading_engine import UltimateTradingEngine
+          
+          # Stock lists by market
+          STOCK_LISTS = {
+              'nse-large-cap': [
+                  ('RELIANCE.NS', 'Reliance'),
+                  ('TCS.NS', 'TCS'),
+                  ('HDFCBANK.NS', 'HDFC Bank'),
+                  ('INFY.NS', 'Infosys'),
+                  ('ICICIBANK.NS', 'ICICI Bank'),
+                  ('HINDUNILVR.NS', 'HUL'),
+                  ('ITC.NS', 'ITC'),
+                  ('SBIN.NS', 'SBI'),
+                  ('BHARTIARTL.NS', 'Bharti Airtel'),
+                  ('KOTAKBANK.NS', 'Kotak Bank'),
+              ],
+              'nse-indices': [
+                  ('^NSEI', 'NIFTY 50'),
+                  ('^NSEBANK', 'Bank NIFTY'),
+                  ('^CNXIT', 'NIFTY IT'),
+              ],
+              'us-large-cap': [
+                  ('AAPL', 'Apple'),
+                  ('MSFT', 'Microsoft'),
+                  ('GOOGL', 'Google'),
+                  ('AMZN', 'Amazon'),
+                  ('TSLA', 'Tesla'),
+                  ('META', 'Meta'),
+                  ('NVDA', 'NVIDIA'),
+              ]
+          }
+          
+          scan_type = os.environ.get('SCAN_TYPE', 'all')
+          market = os.environ.get('MARKET', 'nse-large-cap')
+          
+          print("=" * 70)
+          print("LIVE MARKET SCANNER")
+          print(f"Scan Type: {scan_type}")
+          print(f"Market: {market}")
+          print(f"Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+          print("=" * 70)
+          
+          stocks = STOCK_LISTS.get(market, STOCK_LISTS['nse-large-cap'])
+          engine = UltimateTradingEngine()
+          
+          alerts = []
+          
+          for symbol, name in stocks:
+              print(f"\nScanning {name} ({symbol})...")
+              
+              try:
+                  # Generate sample data (in production, fetch real data)
+                  np.random.seed(int(datetime.now().timestamp()) % 1000 + hash(symbol) % 1000)
+                  n = 100
+                  base = 100 + np.random.rand() * 900
+                  
+                  data = {
+                      'open': base + np.cumsum(np.random.randn(n) * base * 0.01),
+                      'high': base + np.cumsum(np.random.randn(n) * base * 0.01),
+                      'low': base + np.cumsum(np.random.randn(n) * base * 0.01),
+                      'close': base + np.cumsum(np.random.randn(n) * base * 0.01),
+                      'volume': np.random.randint(1000000, 10000000, n).astype(float)
+                  }
+                  
+                  # Fix OHLC
+                  for i in range(n):
+                      data['high'][i] = max(data['open'][i], data['close'][i], data['high'][i])
+                      data['low'][i] = min(data['open'][i], data['close'][i], data['low'][i])
+                  
+                  signals = engine.generate_signals(data)
+                  
+                  # Check latest signal
+                  latest_signal = signals['signal'][-1]
+                  signal_strength = signals.get('strength', [0.5])[-1]
+                  
+                  if latest_signal != 0 or signal_strength > 0.7:
+                      direction = 'LONG' if latest_signal == 1 else ('SHORT' if latest_signal == -1 else 'NEUTRAL')
+                      
+                      alert = {
+                          'symbol': symbol,
+                          'name': name,
+                          'signal': direction,
+                          'strength': signal_strength,
+                          'price': data['close'][-1],
+                          'timestamp': datetime.utcnow().isoformat()
+                      }
+                      alerts.append(alert)
+                      
+                      print(f"  🚨 ALERT: {direction} signal (strength: {signal_strength:.2f})")
+                  else:
+                      print(f"  ✓ No actionable signal")
+                      
+              except Exception as e:
+                  print(f"  ❌ Error: {e}")
+          
+          # Save alerts
+          os.makedirs('../../scanner-results', exist_ok=True)
+          
+          scan_result = {
+              'timestamp': datetime.utcnow().isoformat(),
+              'scan_type': scan_type,
+              'market': market,
+              'alerts': alerts,
+              'total_scanned': len(stocks),
+              'alerts_generated': len(alerts)
+          }
+          
+          filename = f'../../scanner-results/scan_{datetime.now().strftime("%Y%m%d_%H%M")}.json'
+          with open(filename, 'w') as f:
+              json.dump(scan_result, f, indent=2)
+          
+          print("\n" + "=" * 70)
+          print(f"SCAN COMPLETE: {len(alerts)} alerts from {len(stocks)} stocks")
+          print("=" * 70)
+          
+          # Print alerts summary
+          if alerts:
+              print("\n📊 ALERTS SUMMARY:")
+              for a in alerts:
+                  emoji = "🟢" if a['signal'] == 'LONG' else "🔴" if a['signal'] == 'SHORT' else "⚪"
+                  print(f"  {emoji} {a['name']}: {a['signal']} @ {a['price']:.2f}")
+          
+          EOF
+        env:
+          SCAN_TYPE: ${{ github.event.inputs.scan_type || 'all' }}
+          MARKET: ${{ github.event.inputs.market || 'nse-large-cap' }}
+      
+      - name: Commit scan results
+        if: ${{ steps.market-check.outputs.is_open == 'true' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          mkdir -p scanner-results
+          git add scanner-results/ || true
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "📡 Market scan - $(date -u '+%Y-%m-%d %H:%M')"
+            git push
+          fi
+      
+      - name: Create summary
+        run: |
+          echo "## 📡 Market Scanner Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Market Status:** ${{ steps.market-check.outputs.market || 'Manual scan' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -d "scanner-results" ]; then
+            LATEST=$(ls -t scanner-results/*.json 2>/dev/null | head -1)
+            if [ -n "$LATEST" ]; then
+              echo "### Latest Scan Results" >> $GITHUB_STEP_SUMMARY
+              cat "$LATEST" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi

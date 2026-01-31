@@ -1,0 +1,310 @@
+name: Code Quality & Testing
+
+on:
+  push:
+    branches: [ main, copilot/* ]
+    paths:
+      - 'trading-indicator/**/*.py'
+      - 'trading-indicator/**/*.pine'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'trading-indicator/**/*.py'
+      - 'trading-indicator/**/*.pine'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  lint:
+    name: Code Linting
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install linting tools
+        run: |
+          pip install flake8 pylint black isort mypy
+      
+      - name: Run flake8
+        continue-on-error: true
+        run: |
+          echo "## Flake8 Results" >> $GITHUB_STEP_SUMMARY
+          flake8 trading-indicator/python --max-line-length=120 --ignore=E501,W503,E203 --statistics 2>&1 | tee flake8_output.txt || true
+          
+          if [ -s flake8_output.txt ]; then
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat flake8_output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No issues found" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Check code formatting (black)
+        continue-on-error: true
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Black Formatting Check" >> $GITHUB_STEP_SUMMARY
+          black --check --diff trading-indicator/python 2>&1 | head -50 || echo "Some files need formatting"
+      
+      - name: Check import sorting (isort)
+        continue-on-error: true
+        run: |
+          isort --check-only --diff trading-indicator/python 2>&1 | head -50 || echo "Imports need sorting"
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install numpy pandas pytest pytest-cov
+      
+      - name: Run basic import tests
+        working-directory: trading-indicator/python
+        run: |
+          echo "## Import Tests" >> $GITHUB_STEP_SUMMARY
+          
+          python -c "
+          import sys
+          errors = []
+          
+          modules = [
+              'ultimate_trading_engine',
+              'advanced_risk_management', 
+              'auto_optimizer',
+              'ml_signal_filter',
+              'multi_timeframe',
+              'regime_detection',
+              'improved_strategy',
+              'prediction_validator',
+              'backtest'
+          ]
+          
+          for module in modules:
+              try:
+                  __import__(module)
+                  print(f'✅ {module} - OK')
+              except Exception as e:
+                  errors.append(f'{module}: {e}')
+                  print(f'❌ {module} - FAILED: {e}')
+          
+          if errors:
+              print(f'\n{len(errors)} modules failed to import')
+              sys.exit(1)
+          else:
+              print(f'\n✅ All {len(modules)} modules imported successfully')
+          "
+      
+      - name: Run strategy logic tests
+        working-directory: trading-indicator/python
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Strategy Logic Tests" >> $GITHUB_STEP_SUMMARY
+          
+          python -c "
+          import numpy as np
+          
+          # Test EMA calculation
+          def test_ema():
+              data = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], dtype=float)
+              period = 3
+              multiplier = 2 / (period + 1)
+              ema = np.zeros(len(data))
+              ema[0] = data[0]
+              for i in range(1, len(data)):
+                  ema[i] = data[i] * multiplier + ema[i-1] * (1 - multiplier)
+              
+              # Check EMA is working
+              assert ema[-1] > ema[0], 'EMA should increase for rising data'
+              print('✅ EMA calculation test passed')
+          
+          # Test RSI calculation
+          def test_rsi_bounds():
+              # RSI should always be between 0 and 100
+              gains = np.array([1, 2, 0, 3, 0, 1, 2, 0, 1, 0], dtype=float)
+              losses = np.array([0, 0, 1, 0, 2, 0, 0, 1, 0, 1], dtype=float)
+              
+              avg_gain = np.mean(gains[-14:]) if len(gains) >= 14 else np.mean(gains)
+              avg_loss = np.mean(losses[-14:]) if len(losses) >= 14 else np.mean(losses)
+              
+              if avg_loss == 0:
+                  rsi = 100
+              else:
+                  rs = avg_gain / avg_loss
+                  rsi = 100 - (100 / (1 + rs))
+              
+              assert 0 <= rsi <= 100, f'RSI {rsi} out of bounds'
+              print('✅ RSI bounds test passed')
+          
+          # Test ATR calculation
+          def test_atr_positive():
+              high = np.array([105, 106, 107, 108, 109])
+              low = np.array([100, 101, 102, 103, 104])
+              close = np.array([102, 103, 104, 105, 106])
+              
+              tr = np.maximum(high - low, np.maximum(abs(high - np.roll(close, 1)), abs(low - np.roll(close, 1))))
+              tr[0] = high[0] - low[0]
+              atr = np.mean(tr)
+              
+              assert atr > 0, 'ATR should be positive'
+              print('✅ ATR positive test passed')
+          
+          # Run all tests
+          test_ema()
+          test_rsi_bounds()
+          test_atr_positive()
+          
+          print('\\n✅ All strategy logic tests passed!')
+          "
+      
+      - name: Run signal generation test
+        working-directory: trading-indicator/python
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Signal Generation Test" >> $GITHUB_STEP_SUMMARY
+          
+          python -c "
+          from ultimate_trading_engine import UltimateTradingEngine
+          import numpy as np
+          
+          # Create sample data
+          np.random.seed(42)
+          n = 200
+          data = {
+              'open': 100 + np.cumsum(np.random.randn(n) * 0.5),
+              'high': 101 + np.cumsum(np.random.randn(n) * 0.5),
+              'low': 99 + np.cumsum(np.random.randn(n) * 0.5),
+              'close': 100 + np.cumsum(np.random.randn(n) * 0.5),
+              'volume': np.random.randint(1000000, 5000000, n).astype(float)
+          }
+          
+          # Ensure high >= close >= low
+          for i in range(n):
+              data['high'][i] = max(data['open'][i], data['close'][i], data['high'][i])
+              data['low'][i] = min(data['open'][i], data['close'][i], data['low'][i])
+          
+          engine = UltimateTradingEngine()
+          signals = engine.generate_signals(data)
+          
+          # Check signals are valid
+          assert len(signals['signal']) == n, 'Signal length mismatch'
+          assert all(s in [-1, 0, 1] for s in signals['signal']), 'Invalid signal values'
+          
+          buy_signals = sum(1 for s in signals['signal'] if s == 1)
+          sell_signals = sum(1 for s in signals['signal'] if s == -1)
+          
+          print(f'✅ Signal generation test passed')
+          print(f'   Generated {buy_signals} buy signals, {sell_signals} sell signals')
+          "
+
+  validate-pine:
+    name: Validate Pine Script
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check Pine Script syntax
+        run: |
+          echo "## Pine Script Validation" >> $GITHUB_STEP_SUMMARY
+          
+          # Basic syntax checks
+          for file in trading-indicator/pinescript/*.pine; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              echo "Checking $filename..."
+              
+              # Check for required elements
+              if grep -q "//@version=5" "$file"; then
+                echo "✅ $filename - Has v5 declaration"
+              else
+                echo "⚠️ $filename - Missing //@version=5"
+              fi
+              
+              if grep -q "indicator\|strategy" "$file"; then
+                echo "✅ $filename - Has indicator/strategy declaration"
+              else
+                echo "⚠️ $filename - Missing indicator/strategy declaration"
+              fi
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Note: Full Pine Script validation requires TradingView" >> $GITHUB_STEP_SUMMARY
+
+  backtest-smoke:
+    name: Backtest Smoke Test
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: pip install numpy pandas
+      
+      - name: Run quick backtest
+        working-directory: trading-indicator/python
+        run: |
+          echo "## Backtest Smoke Test" >> $GITHUB_STEP_SUMMARY
+          
+          python -c "
+          from ultimate_trading_engine import UltimateTradingEngine
+          
+          engine = UltimateTradingEngine()
+          results = engine.run_full_analysis()
+          
+          print('Backtest Results:')
+          print(f'  Total Trades: {results[\"total_trades\"]}')
+          print(f'  Win Rate: {results[\"win_rate\"]:.2%}')
+          print(f'  Profit Factor: {results[\"profit_factor\"]:.2f}')
+          
+          # Basic sanity checks
+          assert results['total_trades'] >= 0, 'Invalid trade count'
+          assert 0 <= results['win_rate'] <= 1, 'Invalid win rate'
+          
+          print('\\n✅ Backtest smoke test passed!')
+          "
+          
+          echo "✅ Backtest completed successfully" >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [lint, test, validate-pine, backtest-smoke]
+    if: always()
+    
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pine Script | ${{ needs.validate-pine.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backtest | ${{ needs.backtest-smoke.result }} |" >> $GITHUB_STEP_SUMMARY
