@@ -1,0 +1,39 @@
+{
+    "family-tree": [
+        {
+            "relation": "mother-of",
+            "subject": "Sasha",
+            "object": "Noel"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Noel",
+            "object": "Muhammed"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Sasha",
+            "object": "Jordan"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Sasha",
+            "object": "Dana"
+        }
+    ],
+    "country": "South Wumponia",
+    "test-results": [
+        {
+            "type": "mixed-bloodtype-test",
+            "person-1": "Noel",
+            "person-2": "Sasha",
+            "result": "AB"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Jordan"
+        }
+    ]
+}

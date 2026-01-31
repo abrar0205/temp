@@ -1,0 +1,44 @@
+{
+    "family-tree": [
+        {
+            "relation": "mother-of",
+            "subject": "Linda",
+            "object": "Nora"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Calvin",
+            "object": "Linda"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Nora",
+            "object": "Ira"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Nora",
+            "object": "Ira"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Nora",
+            "object": "Amanda"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "mixed-bloodtype-test",
+            "person-1": "Nora",
+            "person-2": "Ira",
+            "result": "AB"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Amanda"
+        }
+    ]
+}

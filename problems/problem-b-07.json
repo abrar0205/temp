@@ -1,0 +1,38 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Ahmed",
+            "object": "Kim"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Ahmed",
+            "object": "Noel"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Lindsay",
+            "object": "Jordan"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Kim",
+            "object": "Prisha"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Lindsay",
+            "result": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Noel"
+        }
+    ]
+}

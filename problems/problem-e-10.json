@@ -1,0 +1,46 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Ahmed",
+            "object": "Prisha"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Ahmed",
+            "object": "Nora"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Ahmed",
+            "object": "Youssef"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Sasha",
+            "object": "Kim"
+        }
+    ],
+    "country": "South Wumponia",
+    "test-results": [
+        {
+            "type": "mixed-bloodtype-test",
+            "person-1": "Nora",
+            "person-2": "Youssef",
+            "result": "B"
+        },
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Prisha",
+            "result-1": "B",
+            "person-2": "Ahmed",
+            "result-2": "B"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Prisha"
+        }
+    ]
+}

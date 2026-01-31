@@ -1,0 +1,40 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Daniel",
+            "object": "Amanda"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Daniel",
+            "object": "Ira"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Ira",
+            "object": "Leslie"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Ira",
+            "result": "AB"
+        },
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Daniel",
+            "result-1": "AB",
+            "person-2": "Leslie",
+            "result-2": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Leslie"
+        }
+    ]
+}

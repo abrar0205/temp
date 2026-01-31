@@ -1,0 +1,49 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Leslie",
+            "object": "Rory"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Rory",
+            "object": "Agnieszka"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Rory",
+            "object": "Samantha"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Rory",
+            "object": "Mehmet"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Mehmet",
+            "result": "AB"
+        },
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Rory",
+            "result-1": "A",
+            "person-2": "Agnieszka",
+            "result-2": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Rory"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Leslie"
+        }
+    ]
+}

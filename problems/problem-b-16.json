@@ -1,0 +1,56 @@
+{
+    "family-tree": [
+        {
+            "relation": "mother-of",
+            "subject": "Ira",
+            "object": "Amanda"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Kim",
+            "object": "Mehmet"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Kim",
+            "object": "Ava"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Ira",
+            "object": "Sam"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Ava",
+            "object": "Yufei"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Kim",
+            "result": "AB"
+        },
+        {
+            "type": "bloodtype-test",
+            "person": "Sam",
+            "result": "B"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Ira"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Mehmet"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Amanda"
+        }
+    ]
+}

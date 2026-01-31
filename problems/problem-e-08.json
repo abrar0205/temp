@@ -1,0 +1,70 @@
+{
+    "family-tree": [
+        {
+            "relation": "mother-of",
+            "subject": "Zeinab",
+            "object": "Yufei"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Zeinab",
+            "object": "Yufei"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Yufei",
+            "object": "Ira"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Zeinab",
+            "object": "Dana"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Yufei",
+            "object": "Agnieszka"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Zeinab",
+            "object": "Calvin"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Ira",
+            "object": "Kim"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Dana",
+            "object": "Lyn"
+        }
+    ],
+    "country": "South Wumponia",
+    "test-results": [
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Agnieszka",
+            "result-1": "A",
+            "person-2": "Calvin",
+            "result-2": "A"
+        },
+        {
+            "type": "mixed-bloodtype-test",
+            "person-1": "Lyn",
+            "person-2": "Agnieszka",
+            "result": "AB"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Zeinab"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Ira"
+        }
+    ]
+}

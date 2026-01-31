@@ -1,0 +1,48 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Omar",
+            "object": "Zeinab"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Omar",
+            "object": "Ayansh"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Omar",
+            "object": "Ahmed"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Omar",
+            "object": "Lyn"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Omar",
+            "object": "Ayansh"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Zeinab",
+            "result": "B"
+        },
+        {
+            "type": "bloodtype-test",
+            "person": "Omar",
+            "result": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Ayansh"
+        }
+    ]
+}

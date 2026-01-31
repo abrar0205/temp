@@ -1,0 +1,43 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Youssef",
+            "object": "Lindsay"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Youssef",
+            "object": "Agnieszka"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Agnieszka",
+            "object": "Leslie"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Lindsay",
+            "object": "Ira"
+        }
+    ],
+    "country": "South Wumponia",
+    "test-results": [
+        {
+            "type": "mixed-bloodtype-test",
+            "person-1": "Agnieszka",
+            "person-2": "Ira",
+            "result": "AB"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Youssef"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Ira"
+        }
+    ]
+}

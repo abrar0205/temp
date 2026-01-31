@@ -1,0 +1,75 @@
+{
+    "family-tree": [
+        {
+            "relation": "mother-of",
+            "subject": "Sasha",
+            "object": "Yufei"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Yufei",
+            "object": "Brian"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Linda",
+            "object": "Agnieszka"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Yufei",
+            "object": "Linda"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Yufei",
+            "object": "Samantha"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Sam",
+            "object": "Noel"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Brian",
+            "object": "Kim"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "mixed-bloodtype-test",
+            "person-1": "Agnieszka",
+            "person-2": "Noel",
+            "result": "A"
+        },
+        {
+            "type": "bloodtype-test",
+            "person": "Sam",
+            "result": "A"
+        },
+        {
+            "type": "bloodtype-test",
+            "person": "Yufei",
+            "result": "A"
+        },
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Agnieszka",
+            "result-1": "A",
+            "person-2": "Kim",
+            "result-2": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Sasha"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Kim"
+        }
+    ]
+}

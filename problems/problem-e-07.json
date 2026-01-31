@@ -1,0 +1,63 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Lindsay",
+            "object": "Lyn"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Muhammed",
+            "object": "Daniel"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Lindsay",
+            "object": "Brian"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Lindsay",
+            "object": "Muhammed"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Lyn",
+            "object": "Linda"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Lindsay",
+            "object": "Ayansh"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Muhammed",
+            "object": "Daniel"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Muhammed",
+            "result-1": "B",
+            "person-2": "Daniel",
+            "result-2": "AB"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Daniel"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Lindsay"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Linda"
+        }
+    ]
+}
