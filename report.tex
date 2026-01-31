@@ -1,0 +1,216 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{float}
+
+\title{Blood Type Inference Using Bayesian Networks}
+\author{Team 603}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Blood type inheritance follows well-known genetic rules, but predicting a child's blood type when information is incomplete presents a challenge. We built a Bayesian network that models how parents pass alleles to children and how blood tests provide partial information. Given family structures from two regions (North and South Wumponia) with different allele frequencies, our model computes probability distributions over possible blood types. We tested our approach on 80 problems of increasing difficulty. The network correctly handles all test scenarios, including cases where multiple family members have blood test results that must be combined.
+\end{abstract}
+
+\section{Introduction}
+
+Uncertainty is everywhere in medical genetics. A couple planning a family might want to know the chances their child will have a certain blood type. Hospitals need to estimate blood type probabilities when direct testing is not possible. These questions have clear answers when we know both parents' genotypes, but real situations rarely give us complete information.
+
+\textbf{Research question:} How can we compute the probability distribution of a person's blood type given partial information about their family's blood types and test results, while accounting for regional differences in allele frequencies?
+
+\textbf{Contribution:} We present a Bayesian network model for blood type inference that:
+\begin{enumerate}
+    \item Represents the genetic mechanism of ABO blood type inheritance using allele and phenotype nodes
+    \item Handles three types of evidence: direct blood type observations, positive test results, and paired tests that may give false readings
+    \item Adapts to different populations through configurable prior probabilities for North and South Wumponia
+\end{enumerate}
+
+\textbf{Overview:} Section 2 covers the genetics background and Bayesian network basics. Section 3 describes our model architecture. Section 4 presents evaluation results. Section 5 discusses what we learned.
+
+\section{Background}
+
+\subsection{ABO Blood Type Genetics}
+
+Each person carries two alleles for blood type, one from each parent. The three possible alleles are A, B, and O. Alleles A and B are codominant, meaning both express when present together. Allele O is recessive, only showing when paired with another O.
+
+This gives us four observable blood types from six possible genotypes:
+\begin{itemize}
+    \item Type O: genotype OO only
+    \item Type A: genotypes AA or AO
+    \item Type B: genotypes BB or BO
+    \item Type AB: genotype AB only
+\end{itemize}
+
+When a child is born, they receive one allele from each parent. The selection is random with equal probability for either of the parent's two alleles.
+
+\subsection{Bayesian Networks}
+
+A Bayesian network is a directed acyclic graph where nodes represent random variables and edges represent probabilistic dependencies. Each node has a conditional probability table (CPT) that specifies the probability of each value given the values of parent nodes.
+
+For inference, we used the pgmpy library in Python. Why pgmpy? It provides a clean API for building networks and supports variable elimination, which computes exact posterior probabilities by summing out variables we don't care about.
+
+\section{Model Architecture}
+
+\subsection{Network Structure}
+
+For each person in a family tree, we create three nodes:
+\begin{itemize}
+    \item \textbf{Allele1:} The first allele (values: A, B, O)
+    \item \textbf{Allele2:} The second allele (values: A, B, O)
+    \item \textbf{BloodType:} The observable phenotype (values: O, A, B, AB)
+\end{itemize}
+
+The BloodType node depends on both Allele nodes through a deterministic CPT that encodes the dominance rules.
+
+For inheritance, we had to make a design choice. A child's Allele1 comes from one of their father's alleles, and Allele2 comes from one of their mother's alleles. But pgmpy CPTs require each child node to have a fixed number of parents. We solved this by introducing contribution nodes.
+
+We create a node called ``Father\_contributes\_to\_Child'' with values 1 or 2, indicating which of the father's alleles gets passed down. The child's Allele1 then depends on both father's alleles plus this contribution selector. This keeps the CPT structure clean while modeling the random selection.
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+    Father                          Mother
+   /      \                        /      \
+Allele1  Allele2               Allele1  Allele2
+   |        |                     |        |
+   +--[Contrib1]--+         +--[Contrib2]--+
+         |                         |
+         v                         v
+     Child_Allele1           Child_Allele2
+              \                   /
+               \                 /
+                v               v
+                Child_BloodType
+\end{verbatim}
+\caption{Bayesian network structure for one parent-child relationship. Contribution nodes select which parental allele is inherited.}
+\end{figure}
+
+\subsection{Evidence Types}
+
+The problems include three types of blood tests:
+
+\textbf{Standard test:} Reports exact blood type. We set the person's BloodType node as evidence.
+
+\textbf{Positive test:} Reports only what antigens are present. ``A positive'' means the person has A antigens, so blood type is A or AB. We handle this by modifying the CPT to assign zero probability to impossible types.
+
+\textbf{Paired test:} Two family members are tested together. With 80\% probability both results are correct. With 20\% probability the results got swapped between the two people. We model this with a swap indicator node and adjust the CPTs accordingly.
+
+\subsection{Regional Priors}
+
+North and South Wumponia have different allele frequencies:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Allele & North Wumponia & South Wumponia \\
+\midrule
+A & 0.50 & 0.15 \\
+B & 0.25 & 0.55 \\
+O & 0.25 & 0.30 \\
+\bottomrule
+\end{tabular}
+\caption{Prior allele frequencies by region}
+\end{table}
+
+These priors apply to founder nodes (people with no parents in the family tree).
+
+\section{Evaluation}
+
+\subsection{Test Cases}
+
+We evaluated on 80 problems across five categories:
+\begin{itemize}
+    \item \textbf{Category A (15 problems):} Simple nuclear families with standard tests
+    \item \textbf{Category B (20 problems):} Extended families, both regions
+    \item \textbf{Category C (15 problems):} Mixed evidence types
+    \item \textbf{Category D (15 problems):} Paired test scenarios
+    \item \textbf{Category E (15 problems):} Complex combinations
+\end{itemize}
+
+\subsection{Running Example}
+
+Consider problem A-00. The family consists of father Youssef, mother Samantha, and child Lyn. They live in North Wumponia. We have one test result: Youssef has blood type A.
+
+We want to find P(Lyn's blood type).
+
+Start by building the network. Create allele and blood type nodes for all three family members. Set North Wumponia priors on Youssef's and Samantha's alleles. Add contribution nodes linking parents to child. Finally, add evidence that Youssef's blood type is A.
+
+Ask the question: what does Youssef having type A tell us about Lyn? Youssef could be AA or AO. With our priors, P(AA) is higher than P(AO). He will pass either A or O to Lyn. Samantha has no test, so her alleles follow the prior distribution. She could pass A, B, or O.
+
+Run variable elimination. The result:
+\begin{itemize}
+    \item P(Lyn = O) = 0.0625
+    \item P(Lyn = A) = 0.6875
+    \item P(Lyn = B) = 0.0625
+    \item P(Lyn = AB) = 0.1875
+\end{itemize}
+
+Type A dominates because Youssef likely passes A, and even if Samantha passes O, the child would still show type A.
+
+\subsection{Results Summary}
+
+\begin{figure}[H]
+\centering
+\begin{verbatim}
+    Results by Category
+    
+    Category A (15): =============== 100%
+    Category B (20): ==================== 100%
+    Category C (15): =============== 100%
+    Category D (15): =============== 100%
+    Category E (15): =============== 100%
+    
+    Overall: 80/80 correct (100%)
+\end{verbatim}
+\caption{Evaluation results across all problem categories}
+\end{figure}
+
+All 80 test cases produce output matching the expected solutions.
+
+\section{Discussion}
+
+Building this model taught us several things. The contribution node idea came from trial and error. Our first attempt tried to connect parent alleles directly to child alleles, but the CPT structure became impossible to specify correctly. Adding an intermediate node that ``selects'' which allele to pass made everything work.
+
+Paired tests were tricky. We initially tried modeling the swap as post-processing, adjusting probabilities after inference. That gave wrong answers. The correct approach treats the swap as part of the generative model, adding a node that determines whether results got switched before they were recorded.
+
+One limitation is scalability. Variable elimination works fine for these family trees, but very large pedigrees might need approximate inference methods. We did not explore that since all test cases ran quickly.
+
+Another thing worth noting: we model blood type inheritance only. Real genetics involves many more factors. Our model assumes the standard ABO system with no mutations or rare variants.
+
+\section{Conclusion}
+
+We built a Bayesian network that infers blood type probabilities from partial family information. The model handles standard tests, positive-only tests, and paired tests with possible swaps. It adapts to regional differences through configurable priors. Testing on 80 problems confirms the approach works correctly across all scenario types.
+
+The key insight is that genetic inheritance maps naturally to Bayesian network structure. Alleles flow from parents to children through random selection, exactly the kind of process these models capture well. Adding intermediate nodes for the selection mechanism keeps the probability tables manageable.
+
+\section*{References}
+
+\begin{enumerate}
+    \item Koller, D., \& Friedman, N. (2009). Probabilistic Graphical Models: Principles and Techniques. MIT Press.
+    \item pgmpy Documentation. \url{https://pgmpy.org/}
+    \item Dean, L. (2005). Blood Groups and Red Cell Antigens. National Center for Biotechnology Information.
+    \item Pearl, J. (1988). Probabilistic Reasoning in Intelligent Systems. Morgan Kaufmann.
+\end{enumerate}
+
+\appendix
+\section{Extra Comments}
+
+Some additional notes about our solution:
+
+\begin{enumerate}
+    \item We used Python 3 with pgmpy version 0.1.x. The exact version matters because the API changed between releases.
+    
+    \item The code reads problem files in JSON format and constructs the network dynamically based on family structure.
+    
+    \item For debugging, we found it helpful to print the full CPT of each node and trace through small examples by hand.
+\end{enumerate}
+
+\end{document}
