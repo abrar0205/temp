@@ -1,0 +1,379 @@
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║                        ULTIMATE TRADING INDICATOR v2.0                       ║
+// ║                                                                              ║
+// ║  The Most Comprehensive Trading System for TradingView                       ║
+// ║                                                                              ║
+// ║  Features:                                                                   ║
+// ║  • 6-Layer Signal Confirmation System                                        ║
+// ║  • Triple SuperTrend with Consensus                                          ║
+// ║  • EMA 200 Trend Filter                                                      ║
+// ║  • Stochastic RSI Entry Timing                                               ║
+// ║  • ADX Regime Detection                                                      ║
+// ║  • Multi-Timeframe Analysis                                                  ║
+// ║  • Advanced Risk Management with ATR Stops                                   ║
+// ║  • Visual Dashboard with All Metrics                                         ║
+// ║                                                                              ║
+// ║  Author: Trading Indicator Project                                           ║
+// ║  Version: 2.0.0 ULTIMATE                                                     ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
+
+//@version=5
+indicator("Ultimate Trading Indicator v2.0", shorttitle="UTI v2.0", overlay=true, max_lines_count=500, max_labels_count=500)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INPUTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Trend Filter
+grp_trend = "═══ TREND FILTER ═══"
+ema_period = input.int(200, "EMA Period", minval=50, maxval=500, group=grp_trend)
+show_ema = input.bool(true, "Show EMA", group=grp_trend)
+
+// Triple SuperTrend
+grp_st = "═══ TRIPLE SUPERTREND ═══"
+st1_period = input.int(10, "SuperTrend 1 Period", minval=1, group=grp_st)
+st1_mult = input.float(1.0, "SuperTrend 1 Multiplier", minval=0.1, step=0.1, group=grp_st)
+st2_period = input.int(11, "SuperTrend 2 Period", minval=1, group=grp_st)
+st2_mult = input.float(2.0, "SuperTrend 2 Multiplier", minval=0.1, step=0.1, group=grp_st)
+st3_period = input.int(12, "SuperTrend 3 Period", minval=1, group=grp_st)
+st3_mult = input.float(3.0, "SuperTrend 3 Multiplier", minval=0.1, step=0.1, group=grp_st)
+show_supertrend = input.bool(true, "Show SuperTrend", group=grp_st)
+st_consensus_required = input.int(2, "Minimum Consensus (2-3)", minval=2, maxval=3, group=grp_st)
+
+// Stochastic RSI
+grp_stoch = "═══ STOCHASTIC RSI ═══"
+stoch_rsi_period = input.int(14, "Stochastic RSI Period", minval=1, group=grp_stoch)
+stoch_k = input.int(3, "K Smoothing", minval=1, group=grp_stoch)
+stoch_d = input.int(3, "D Smoothing", minval=1, group=grp_stoch)
+stoch_ob = input.int(80, "Overbought Level", group=grp_stoch)
+stoch_os = input.int(20, "Oversold Level", group=grp_stoch)
+
+// ADX Regime Detection
+grp_adx = "═══ ADX REGIME DETECTION ═══"
+adx_period = input.int(14, "ADX Period", minval=1, group=grp_adx)
+adx_strong = input.int(25, "Strong Trend Threshold", group=grp_adx)
+adx_weak = input.int(15, "Weak Trend Threshold", group=grp_adx)
+show_regime = input.bool(true, "Show Regime Background", group=grp_adx)
+
+// Risk Management
+grp_risk = "═══ RISK MANAGEMENT ═══"
+atr_period = input.int(14, "ATR Period", group=grp_risk)
+sl_mult = input.float(2.0, "Stop Loss ATR Multiplier", step=0.1, group=grp_risk)
+tp1_mult = input.float(2.0, "Take Profit 1 ATR Multiplier", step=0.1, group=grp_risk)
+tp2_mult = input.float(4.0, "Take Profit 2 ATR Multiplier", step=0.1, group=grp_risk)
+tp3_mult = input.float(6.0, "Take Profit 3 ATR Multiplier", step=0.1, group=grp_risk)
+show_levels = input.bool(true, "Show SL/TP Levels", group=grp_risk)
+
+// Filters
+grp_filter = "═══ SIGNAL FILTERS ═══"
+min_confidence = input.int(60, "Minimum Confidence %", minval=0, maxval=100, group=grp_filter)
+require_volume = input.bool(true, "Require Volume Confirmation", group=grp_filter)
+volume_mult = input.float(1.0, "Volume Multiplier", step=0.1, group=grp_filter)
+
+// Visual Settings
+grp_visual = "═══ VISUAL SETTINGS ═══"
+show_signals = input.bool(true, "Show Buy/Sell Signals", group=grp_visual)
+show_table = input.bool(true, "Show Dashboard Table", group=grp_visual)
+table_position = input.string("top_right", "Table Position", options=["top_right", "top_left", "bottom_right", "bottom_left"], group=grp_visual)
+bull_color = input.color(color.new(#00E676, 0), "Bullish Color", group=grp_visual)
+bear_color = input.color(color.new(#FF5252, 0), "Bearish Color", group=grp_visual)
+neutral_color = input.color(color.new(#FFC107, 0), "Neutral Color", group=grp_visual)
+
+// Alerts
+grp_alert = "═══ ALERTS ═══"
+alert_buy = input.bool(true, "Alert on Buy Signal", group=grp_alert)
+alert_sell = input.bool(true, "Alert on Sell Signal", group=grp_alert)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// EMA 200
+ema200 = ta.ema(close, ema_period)
+
+// Helper function for SuperTrend
+supertrend(_period, _mult) =>
+    atr = ta.atr(_period)
+    up = hl2 - _mult * atr
+    dn = hl2 + _mult * atr
+    
+    var float trend = na
+    var float trendline = na
+    
+    prev_trendline = nz(trendline[1])
+    prev_trend = nz(trend[1])
+    
+    if close > prev_trendline
+        trend := 1
+    else if close < prev_trendline
+        trend := -1
+    else
+        trend := prev_trend
+    
+    if trend == 1
+        trendline := math.max(up, prev_trend == 1 ? prev_trendline : up)
+    else
+        trendline := math.min(dn, prev_trend == -1 ? prev_trendline : dn)
+    
+    [trend, trendline]
+
+// Calculate Triple SuperTrend
+[st1_trend, st1_line] = supertrend(st1_period, st1_mult)
+[st2_trend, st2_line] = supertrend(st2_period, st2_mult)
+[st3_trend, st3_line] = supertrend(st3_period, st3_mult)
+
+// SuperTrend Consensus (-3 to +3)
+st_consensus = st1_trend + st2_trend + st3_trend
+
+// Stochastic RSI
+rsi = ta.rsi(close, stoch_rsi_period)
+rsi_min = ta.lowest(rsi, stoch_rsi_period)
+rsi_max = ta.highest(rsi, stoch_rsi_period)
+stoch_rsi = (rsi - rsi_min) / (rsi_max - rsi_min) * 100
+k_line = ta.sma(stoch_rsi, stoch_k)
+d_line = ta.sma(k_line, stoch_d)
+
+// ADX Calculation
+[di_plus, di_minus, adx] = ta.dmi(adx_period, adx_period)
+
+// ATR for Risk Management
+atr = ta.atr(atr_period)
+
+// Volume Analysis
+vol_sma = ta.sma(volume, 20)
+vol_ratio = volume / vol_sma
+vol_confirmed = vol_ratio >= volume_mult
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SIGNAL GENERATION (6-Layer System)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Layer 1: EMA Trend Filter
+ema_bullish = close > ema200
+ema_bearish = close < ema200
+layer1_bull = ema_bullish ? 1 : 0
+layer1_bear = ema_bearish ? 1 : 0
+
+// Layer 2: Triple SuperTrend Consensus
+layer2_bull = st_consensus >= st_consensus_required ? 1 : 0
+layer2_bear = st_consensus <= -st_consensus_required ? 1 : 0
+
+// Layer 3: Stochastic RSI Entry Timing
+stoch_oversold = k_line < stoch_os
+stoch_overbought = k_line > stoch_ob
+stoch_turning_up = k_line > k_line[1] and stoch_oversold[1]
+stoch_turning_dn = k_line < k_line[1] and stoch_overbought[1]
+layer3_bull = stoch_turning_up or (k_line < 50 and k_line > k_line[1]) ? 1 : 0
+layer3_bear = stoch_turning_dn or (k_line > 50 and k_line < k_line[1]) ? 1 : 0
+
+// Layer 4: ADX Regime (Trend Strength)
+strong_trend = adx >= adx_strong
+weak_trend = adx >= adx_weak and adx < adx_strong
+ranging = adx < adx_weak
+layer4_bull = strong_trend and di_plus > di_minus ? 1 : (weak_trend and di_plus > di_minus ? 0.5 : 0)
+layer4_bear = strong_trend and di_minus > di_plus ? 1 : (weak_trend and di_minus > di_plus ? 0.5 : 0)
+
+// Layer 5: Multi-Timeframe (EMA Alignment)
+ema50 = ta.ema(close, 50)
+ema20 = ta.ema(close, 20)
+ema_aligned_bull = close > ema20 and ema20 > ema50 and ema50 > ema200
+ema_aligned_bear = close < ema20 and ema20 < ema50 and ema50 < ema200
+layer5_bull = ema_aligned_bull ? 1 : 0
+layer5_bear = ema_aligned_bear ? 1 : 0
+
+// Layer 6: Volume Confirmation
+layer6_bull = vol_confirmed and close > close[1] ? 1 : (close > close[1] ? 0.5 : 0)
+layer6_bear = vol_confirmed and close < close[1] ? 1 : (close < close[1] ? 0.5 : 0)
+
+// Calculate Total Score and Confidence
+bull_score = layer1_bull + layer2_bull + layer3_bull + layer4_bull + layer5_bull + layer6_bull
+bear_score = layer1_bear + layer2_bear + layer3_bear + layer4_bear + layer5_bear + layer6_bear
+max_score = 6.0
+
+bull_confidence = (bull_score / max_score) * 100
+bear_confidence = (bear_score / max_score) * 100
+
+// Determine Signal
+is_strong_buy = bull_confidence >= 80 and not ranging
+is_buy = bull_confidence >= min_confidence and bull_confidence < 80 and not ranging
+is_strong_sell = bear_confidence >= 80 and not ranging
+is_sell = bear_confidence >= min_confidence and bear_confidence < 80 and not ranging
+is_neutral = not is_strong_buy and not is_buy and not is_strong_sell and not is_sell
+
+// Signal Detection (new signals only)
+buy_signal = (is_strong_buy or is_buy) and not (is_strong_buy[1] or is_buy[1])
+sell_signal = (is_strong_sell or is_sell) and not (is_strong_sell[1] or is_sell[1])
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RISK LEVELS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Calculate SL/TP for current position
+var float entry_price = na
+var float stop_loss = na
+var float take_profit_1 = na
+var float take_profit_2 = na
+var float take_profit_3 = na
+var int position = 0  // 0 = flat, 1 = long, -1 = short
+
+if buy_signal
+    entry_price := close
+    stop_loss := close - atr * sl_mult
+    take_profit_1 := close + atr * tp1_mult
+    take_profit_2 := close + atr * tp2_mult
+    take_profit_3 := close + atr * tp3_mult
+    position := 1
+
+if sell_signal
+    entry_price := close
+    stop_loss := close + atr * sl_mult
+    take_profit_1 := close - atr * tp1_mult
+    take_profit_2 := close - atr * tp2_mult
+    take_profit_3 := close - atr * tp3_mult
+    position := -1
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PLOTTING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// EMA 200
+plot(show_ema ? ema200 : na, "EMA 200", color=color.new(color.white, 30), linewidth=2)
+
+// SuperTrend Lines
+st_color1 = st1_trend == 1 ? color.new(bull_color, 70) : color.new(bear_color, 70)
+st_color2 = st2_trend == 1 ? color.new(bull_color, 50) : color.new(bear_color, 50)
+st_color3 = st3_trend == 1 ? color.new(bull_color, 30) : color.new(bear_color, 30)
+
+plot(show_supertrend ? st1_line : na, "ST1", color=st_color1, linewidth=1)
+plot(show_supertrend ? st2_line : na, "ST2", color=st_color2, linewidth=1)
+plot(show_supertrend ? st3_line : na, "ST3", color=st_color3, linewidth=2)
+
+// Regime Background
+regime_color = strong_trend and di_plus > di_minus ? color.new(bull_color, 92) : 
+               strong_trend and di_minus > di_plus ? color.new(bear_color, 92) :
+               ranging ? color.new(neutral_color, 95) : na
+bgcolor(show_regime ? regime_color : na)
+
+// Buy/Sell Signals
+plotshape(show_signals and buy_signal, "Buy Signal", style=shape.triangleup, 
+          location=location.belowbar, color=bull_color, size=size.normal, text="BUY")
+plotshape(show_signals and sell_signal, "Sell Signal", style=shape.triangledown, 
+          location=location.abovebar, color=bear_color, size=size.normal, text="SELL")
+
+// Strong Signals
+plotshape(show_signals and is_strong_buy and buy_signal, "Strong Buy", style=shape.labelup,
+          location=location.belowbar, color=bull_color, size=size.large, text="STRONG\nBUY", textcolor=color.white)
+plotshape(show_signals and is_strong_sell and sell_signal, "Strong Sell", style=shape.labeldown,
+          location=location.abovebar, color=bear_color, size=size.large, text="STRONG\nSELL", textcolor=color.white)
+
+// SL/TP Levels
+plot(show_levels and position == 1 ? stop_loss : na, "Long SL", color=bear_color, style=plot.style_linebr, linewidth=1)
+plot(show_levels and position == 1 ? take_profit_1 : na, "Long TP1", color=bull_color, style=plot.style_linebr, linewidth=1)
+plot(show_levels and position == 1 ? take_profit_2 : na, "Long TP2", color=color.new(bull_color, 30), style=plot.style_linebr, linewidth=1)
+plot(show_levels and position == 1 ? take_profit_3 : na, "Long TP3", color=color.new(bull_color, 50), style=plot.style_linebr, linewidth=1)
+
+plot(show_levels and position == -1 ? stop_loss : na, "Short SL", color=bull_color, style=plot.style_linebr, linewidth=1)
+plot(show_levels and position == -1 ? take_profit_1 : na, "Short TP1", color=bear_color, style=plot.style_linebr, linewidth=1)
+plot(show_levels and position == -1 ? take_profit_2 : na, "Short TP2", color=color.new(bear_color, 30), style=plot.style_linebr, linewidth=1)
+plot(show_levels and position == -1 ? take_profit_3 : na, "Short TP3", color=color.new(bear_color, 50), style=plot.style_linebr, linewidth=1)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DASHBOARD TABLE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+if show_table
+    var table dashboard = table.new(table_position == "top_right" ? position.top_right : 
+                                    table_position == "top_left" ? position.top_left :
+                                    table_position == "bottom_right" ? position.bottom_right : position.bottom_left, 
+                                    2, 15, bgcolor=color.new(color.black, 20), frame_width=1, frame_color=color.gray)
+    
+    if barstate.islast
+        // Header
+        table.cell(dashboard, 0, 0, "ULTIMATE INDICATOR v2.0", text_color=color.white, text_size=size.small, bgcolor=color.new(color.blue, 50))
+        table.merge_cells(dashboard, 0, 0, 1, 0)
+        
+        // Signal
+        signal_text = is_strong_buy ? "STRONG BUY" : is_buy ? "BUY" : is_strong_sell ? "STRONG SELL" : is_sell ? "SELL" : "NEUTRAL"
+        signal_color = is_strong_buy or is_buy ? bull_color : is_strong_sell or is_sell ? bear_color : neutral_color
+        table.cell(dashboard, 0, 1, "Signal", text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 1, 1, signal_text, text_color=signal_color, text_size=size.small)
+        
+        // Confidence
+        conf = math.max(bull_confidence, bear_confidence)
+        conf_color = conf >= 80 ? color.lime : conf >= 60 ? color.green : conf >= 40 ? color.yellow : color.red
+        table.cell(dashboard, 0, 2, "Confidence", text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 1, 2, str.tostring(conf, "#.0") + "%", text_color=conf_color, text_size=size.small)
+        
+        // Layers
+        table.cell(dashboard, 0, 3, "──────────", text_color=color.gray, text_size=size.tiny)
+        table.cell(dashboard, 1, 3, "──────────", text_color=color.gray, text_size=size.tiny)
+        
+        // Layer 1: EMA
+        l1_status = ema_bullish ? "✓ BULLISH" : "✗ BEARISH"
+        l1_color = ema_bullish ? bull_color : bear_color
+        table.cell(dashboard, 0, 4, "1. EMA(200)", text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 1, 4, l1_status, text_color=l1_color, text_size=size.tiny)
+        
+        // Layer 2: SuperTrend
+        l2_status = st_consensus >= 2 ? "✓ +" + str.tostring(st_consensus) : st_consensus <= -2 ? "✗ " + str.tostring(st_consensus) : "○ " + str.tostring(st_consensus)
+        l2_color = st_consensus >= 2 ? bull_color : st_consensus <= -2 ? bear_color : neutral_color
+        table.cell(dashboard, 0, 5, "2. SuperTrend", text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 1, 5, l2_status, text_color=l2_color, text_size=size.tiny)
+        
+        // Layer 3: Stochastic RSI
+        l3_status = k_line < 30 ? "✓ OVERSOLD" : k_line > 70 ? "✗ OVERBOUGHT" : "○ NEUTRAL"
+        l3_color = k_line < 30 ? bull_color : k_line > 70 ? bear_color : neutral_color
+        table.cell(dashboard, 0, 6, "3. Stoch RSI", text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 1, 6, str.tostring(k_line, "#.0") + " " + l3_status, text_color=l3_color, text_size=size.tiny)
+        
+        // Layer 4: ADX
+        l4_status = strong_trend ? "STRONG" : weak_trend ? "WEAK" : "RANGING"
+        l4_color = strong_trend ? color.lime : weak_trend ? color.yellow : color.red
+        table.cell(dashboard, 0, 7, "4. ADX", text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 1, 7, str.tostring(adx, "#.0") + " " + l4_status, text_color=l4_color, text_size=size.tiny)
+        
+        // Layer 5: MTF Alignment
+        l5_status = ema_aligned_bull ? "✓ ALIGNED ↑" : ema_aligned_bear ? "✓ ALIGNED ↓" : "○ MIXED"
+        l5_color = ema_aligned_bull ? bull_color : ema_aligned_bear ? bear_color : neutral_color
+        table.cell(dashboard, 0, 8, "5. EMA Align", text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 1, 8, l5_status, text_color=l5_color, text_size=size.tiny)
+        
+        // Layer 6: Volume
+        l6_status = vol_confirmed ? "✓ " + str.tostring(vol_ratio, "#.1x") : "○ " + str.tostring(vol_ratio, "#.1x")
+        l6_color = vol_confirmed ? bull_color : neutral_color
+        table.cell(dashboard, 0, 9, "6. Volume", text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 1, 9, l6_status, text_color=l6_color, text_size=size.tiny)
+        
+        // Risk Levels
+        table.cell(dashboard, 0, 10, "──────────", text_color=color.gray, text_size=size.tiny)
+        table.cell(dashboard, 1, 10, "──────────", text_color=color.gray, text_size=size.tiny)
+        
+        if position != 0
+            table.cell(dashboard, 0, 11, "Entry", text_color=color.white, text_size=size.tiny)
+            table.cell(dashboard, 1, 11, str.tostring(entry_price, "#.2"), text_color=color.white, text_size=size.tiny)
+            
+            table.cell(dashboard, 0, 12, "Stop Loss", text_color=color.white, text_size=size.tiny)
+            table.cell(dashboard, 1, 12, str.tostring(stop_loss, "#.2"), text_color=bear_color, text_size=size.tiny)
+            
+            table.cell(dashboard, 0, 13, "TP1/TP2/TP3", text_color=color.white, text_size=size.tiny)
+            table.cell(dashboard, 1, 13, str.tostring(take_profit_1, "#.0") + "/" + str.tostring(take_profit_2, "#.0") + "/" + str.tostring(take_profit_3, "#.0"), text_color=bull_color, text_size=size.tiny)
+        else
+            table.cell(dashboard, 0, 11, "Position", text_color=color.white, text_size=size.tiny)
+            table.cell(dashboard, 1, 11, "FLAT", text_color=neutral_color, text_size=size.tiny)
+        
+        // ATR
+        table.cell(dashboard, 0, 14, "ATR(14)", text_color=color.white, text_size=size.tiny)
+        table.cell(dashboard, 1, 14, str.tostring(atr, "#.2"), text_color=color.white, text_size=size.tiny)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALERTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+alertcondition(alert_buy and buy_signal, "Buy Signal", "UTI v2.0: BUY signal on {{ticker}} at {{close}}")
+alertcondition(alert_sell and sell_signal, "Sell Signal", "UTI v2.0: SELL signal on {{ticker}} at {{close}}")
+alertcondition(alert_buy and is_strong_buy and buy_signal, "Strong Buy", "UTI v2.0: STRONG BUY on {{ticker}} at {{close}} - Confidence: " + str.tostring(bull_confidence) + "%")
+alertcondition(alert_sell and is_strong_sell and sell_signal, "Strong Sell", "UTI v2.0: STRONG SELL on {{ticker}} at {{close}} - Confidence: " + str.tostring(bear_confidence) + "%")
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// END OF INDICATOR
+// ═══════════════════════════════════════════════════════════════════════════════
