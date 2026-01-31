@@ -1,0 +1,12 @@
+[
+    {
+        "type": "bloodtype",
+        "person": "Dana",
+        "distribution": {
+            "O": 0.0625,
+            "A": 0.6875,
+            "B": 0.0625,
+            "AB": 0.1875
+        }
+    }
+]
