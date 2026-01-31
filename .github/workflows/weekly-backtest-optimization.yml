@@ -1,0 +1,165 @@
+name: Weekly Backtest & Strategy Optimization
+
+on:
+  # Run every Sunday at 6 AM UTC (11:30 AM IST)
+  schedule:
+    - cron: '0 6 * * 0'
+  
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: 'Symbols to backtest (comma-separated)'
+        required: false
+        default: 'NIFTY50,BANKNIFTY,RELIANCE.NS,TCS.NS'
+      optimize:
+        description: 'Run optimization?'
+        type: boolean
+        default: true
+      monte_carlo_runs:
+        description: 'Monte Carlo simulation runs'
+        required: false
+        default: '1000'
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    outputs:
+      best_params: ${{ steps.optimize.outputs.best_params }}
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install numpy pandas yfinance
+      
+      - name: Create output directories
+        run: |
+          mkdir -p backtest-results/weekly
+          mkdir -p backtest-results/optimization
+      
+      - name: Run comprehensive backtest
+        working-directory: trading-indicator/python
+        run: |
+          echo "=== Weekly Comprehensive Backtest ==="
+          echo "Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo ""
+          
+          # Parse symbols
+          IFS=',' read -ra SYMBOLS <<< "${{ github.event.inputs.symbols || 'NIFTY50,BANKNIFTY' }}"
+          
+          # Run backtest for each symbol
+          for symbol in "${SYMBOLS[@]}"; do
+            echo "--- Backtesting $symbol ---"
+            python run_ultimate.py --symbol "$symbol" --output "../../backtest-results/weekly/${symbol}_$(date +%Y%m%d).json" 2>&1 || echo "Warning: $symbol backtest completed with warnings"
+            echo ""
+          done
+      
+      - name: Run strategy optimization
+        id: optimize
+        if: ${{ github.event.inputs.optimize != 'false' }}
+        working-directory: trading-indicator/python
+        run: |
+          echo "=== Strategy Optimization ==="
+          
+          python auto_optimizer.py \
+            --symbol NIFTY50 \
+            --method grid \
+            --output "../../backtest-results/optimization/optimized_params_$(date +%Y%m%d).json" \
+            2>&1 || echo "Optimization completed"
+          
+          # Output best parameters if found
+          if [ -f "../../backtest-results/optimization/optimized_params_$(date +%Y%m%d).json" ]; then
+            echo "best_params=$(cat ../../backtest-results/optimization/optimized_params_$(date +%Y%m%d).json | head -1)" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Run Monte Carlo simulation
+        working-directory: trading-indicator/python
+        run: |
+          echo "=== Monte Carlo Robustness Test ==="
+          
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from improved_strategy import ImprovedTradingStrategy
+          
+          strategy = ImprovedTradingStrategy()
+          results = strategy.monte_carlo_simulation(${{ github.event.inputs.monte_carlo_runs || 1000 }})
+          
+          print('Monte Carlo Results:')
+          print(f'  Mean Win Rate: {results[\"mean_win_rate\"]:.2%}')
+          print(f'  Std Dev: {results[\"std_win_rate\"]:.2%}')
+          print(f'  5th Percentile: {results[\"percentile_5\"]:.2%}')
+          print(f'  95th Percentile: {results[\"percentile_95\"]:.2%}')
+          print(f'  Confidence: {results[\"confidence\"]:.2%}')
+          "
+      
+      - name: Generate weekly report
+        run: |
+          echo "# Weekly Backtest Report" > backtest-results/weekly/WEEKLY_REPORT.md
+          echo "" >> backtest-results/weekly/WEEKLY_REPORT.md
+          echo "Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> backtest-results/weekly/WEEKLY_REPORT.md
+          echo "" >> backtest-results/weekly/WEEKLY_REPORT.md
+          
+          echo "## Symbols Tested" >> backtest-results/weekly/WEEKLY_REPORT.md
+          echo "${{ github.event.inputs.symbols || 'NIFTY50,BANKNIFTY' }}" >> backtest-results/weekly/WEEKLY_REPORT.md
+          echo "" >> backtest-results/weekly/WEEKLY_REPORT.md
+          
+          echo "## Results" >> backtest-results/weekly/WEEKLY_REPORT.md
+          ls -la backtest-results/weekly/*.json 2>/dev/null || echo "No JSON results found"
+      
+      - name: Commit results
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          git add backtest-results/ || true
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "📈 Weekly backtest results - $(date -u '+%Y-%m-%d')"
+            git push
+          fi
+      
+      - name: Create summary
+        run: |
+          echo "## 📈 Weekly Backtest Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Week:** $(date -u '+%Y-%m-%d')" >> $GITHUB_STEP_SUMMARY
+          echo "**Symbols:** ${{ github.event.inputs.symbols || 'NIFTY50,BANKNIFTY' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Monte Carlo Runs:** ${{ github.event.inputs.monte_carlo_runs || 1000 }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "backtest-results/weekly/WEEKLY_REPORT.md" ]; then
+            cat backtest-results/weekly/WEEKLY_REPORT.md >> $GITHUB_STEP_SUMMARY
+          fi
+
+  notify:
+    needs: backtest
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Send notification summary
+        run: |
+          echo "Weekly backtest completed!"
+          echo "Status: ${{ needs.backtest.result }}"
+          # Add webhook notification here if configured

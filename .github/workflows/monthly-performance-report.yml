@@ -1,0 +1,191 @@
+name: Monthly Performance Report
+
+on:
+  # Run on 1st of each month at 6 AM UTC
+  schedule:
+    - cron: '0 6 1 * *'
+  
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      months_back:
+        description: 'Number of months to analyze'
+        required: false
+        default: '3'
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0  # Full history for commit analysis
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: pip install numpy pandas yfinance matplotlib
+      
+      - name: Create report directories
+        run: |
+          mkdir -p reports/monthly
+          mkdir -p reports/charts
+      
+      - name: Generate monthly performance analysis
+        working-directory: trading-indicator/python
+        run: |
+          python << 'EOF'
+          import json
+          import os
+          from datetime import datetime, timedelta
+          import numpy as np
+          
+          # Import our modules
+          from ultimate_trading_engine import UltimateTradingEngine
+          
+          print("=" * 60)
+          print("MONTHLY PERFORMANCE REPORT")
+          print(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+          print("=" * 60)
+          
+          # Run analysis
+          engine = UltimateTradingEngine()
+          results = engine.run_full_analysis()
+          
+          # Create report
+          report = {
+              'generated_at': datetime.utcnow().isoformat(),
+              'period': 'Last 3 months',
+              'symbols_analyzed': ['NIFTY50', 'BANKNIFTY'],
+              'strategy_performance': {
+                  'win_rate': results['win_rate'],
+                  'profit_factor': results['profit_factor'],
+                  'total_trades': results['total_trades'],
+                  'max_drawdown': results['max_drawdown'],
+                  'sharpe_ratio': results.get('sharpe_ratio', 0)
+              },
+              'recommendations': []
+          }
+          
+          # Add recommendations based on performance
+          if results['win_rate'] < 0.5:
+              report['recommendations'].append('Consider more conservative position sizing')
+          if results['profit_factor'] < 1.5:
+              report['recommendations'].append('Review risk:reward ratio settings')
+          if results['win_rate'] >= 0.55 and results['profit_factor'] >= 1.5:
+              report['recommendations'].append('Strategy performing well - maintain current settings')
+          
+          # Save JSON report
+          os.makedirs('../../reports/monthly', exist_ok=True)
+          with open(f'../../reports/monthly/report_{datetime.now().strftime("%Y%m")}.json', 'w') as f:
+              json.dump(report, f, indent=2)
+          
+          print("\nPerformance Summary:")
+          print(f"  Win Rate: {results['win_rate']:.2%}")
+          print(f"  Profit Factor: {results['profit_factor']:.2f}")
+          print(f"  Total Trades: {results['total_trades']}")
+          print(f"  Max Drawdown: {results['max_drawdown']:.2%}")
+          
+          print("\nRecommendations:")
+          for rec in report['recommendations']:
+              print(f"  • {rec}")
+          
+          EOF
+      
+      - name: Generate markdown report
+        run: |
+          cat > reports/monthly/MONTHLY_REPORT_$(date +%Y%m).md << 'EOF'
+          # Monthly Trading Performance Report
+          
+          **Period:** Previous Month
+          **Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          
+          ## Executive Summary
+          
+          This report provides a comprehensive analysis of the Ultimate Trading System's
+          performance over the past month.
+          
+          ## Key Metrics
+          
+          | Metric | Value | Target | Status |
+          |--------|-------|--------|--------|
+          | Win Rate | See JSON | 55%+ | - |
+          | Profit Factor | See JSON | 1.5+ | - |
+          | Max Drawdown | See JSON | <15% | - |
+          | Sharpe Ratio | See JSON | 1.0+ | - |
+          
+          ## Strategy Analysis
+          
+          ### Signal Distribution
+          - Long signals generated
+          - Short signals generated
+          - Filtered signals (false positive reduction)
+          
+          ### Performance by Market Regime
+          - Trending markets
+          - Ranging markets
+          - High volatility periods
+          
+          ## Recommendations
+          
+          Based on this month's performance, see the JSON report for specific recommendations.
+          
+          ## Next Steps
+          
+          1. Review any losing trades for pattern analysis
+          2. Validate current parameters against changing market conditions
+          3. Run walk-forward optimization if performance degraded
+          
+          ---
+          *This report is auto-generated by the Ultimate Trading System*
+          EOF
+      
+      - name: Calculate prediction accuracy
+        if: ${{ hashFiles('predictions/*.json') != '' }}
+        run: |
+          echo "## Prediction Accuracy Analysis" >> reports/monthly/MONTHLY_REPORT_$(date +%Y%m).md
+          echo "" >> reports/monthly/MONTHLY_REPORT_$(date +%Y%m).md
+          
+          # Count predictions if they exist
+          if [ -d "predictions" ]; then
+            prediction_count=$(find predictions -name "*.json" -type f | wc -l)
+            echo "Total prediction files: $prediction_count" >> reports/monthly/MONTHLY_REPORT_$(date +%Y%m).md
+          fi
+      
+      - name: Commit report
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          git add reports/ || true
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "📊 Monthly performance report - $(date -u '+%Y-%m')"
+            git push
+          fi
+      
+      - name: Create GitHub summary
+        run: |
+          echo "## 📊 Monthly Performance Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Month:** $(date -u '+%B %Y')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "reports/monthly/report_$(date +%Y%m).json" ]; then
+            echo "### Performance Metrics" >> $GITHUB_STEP_SUMMARY
+            cat reports/monthly/report_$(date +%Y%m).json >> $GITHUB_STEP_SUMMARY
+          fi
