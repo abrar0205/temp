@@ -2,283 +2,186 @@
 
 ## Abstract
 
-This report explores the challenge of inferring blood type probabilities in family trees when only partial information is available. We develop a Bayesian network model that represents genetic inheritance causally—from parental alleles to child alleles to observable blood types. The model handles three evidence types: direct tests, mixed-sample tests, and paired tests with potential labeling errors. Through evaluation on 29 test cases of varying complexity, we demonstrate that the causal modeling approach produces correct probability distributions while keeping the model structure clean and modular. A key finding is that modeling in the causal direction (genotype→phenotype) yields simpler probability specifications than the diagnostic direction, even when the inference goal is to determine causes from observed effects.
+This report explores the challenge of inferring blood type probabilities in family trees when only partial information is available. We develop a Bayesian network model that represents genetic inheritance causally, from parental alleles to child alleles to observable blood types. The model handles three evidence types including direct tests, mixed sample tests, and paired tests with potential labeling errors. Through evaluation on 29 test cases of varying complexity, we demonstrate that the causal modeling approach produces correct probability distributions while keeping the model structure clean and modular. A key finding is that modeling in the causal direction yields simpler probability specifications than the diagnostic direction, even when the inference goal is to determine causes from observed effects.
 
 ## 1 Introduction
 
 Agents often need to reason about uncertain information. In medical genetics, a physician might know some family members' blood types but need to infer others. The ABO blood group system follows clear inheritance rules, yet practical inference must handle incomplete observations and imperfect laboratory tests.
 
-**Research question:** How can we build a probabilistic model that accurately infers blood type distributions given partial family and test information?
+**Research question** How can we build a probabilistic model that accurately infers blood type distributions given partial family and test information?
 
-**Contribution:** There are three key contributions in this report:
+**Contribution** There are three key contributions in this report:
+
 1. A Bayesian network architecture that separates genetic state (alleles) from observable phenotype (blood type)
 2. Methods for incorporating three different evidence types into a unified framework
 3. An evaluation comparing model accuracy across problem categories of increasing complexity
 
-**Overview:** Section 2 describes the problem domain. Section 3 presents the Bayesian network model architecture. Section 4 evaluates the model on test cases. Section 5 discusses insights and limitations, and Section 6 concludes.
+**Overview** First, the problem is described in more detail in Section 2. Section 3 presents the Bayesian network model architecture. Section 4 evaluates the model on test cases. Section 5 discusses insights and limitations, and Section 6 concludes the report.
 
 ## 2 Problem Description
 
 ### 2.1 The ABO Blood Group System
 
-Each person inherits two alleles of the ABO gene, one from each parent. There are three possible alleles: A, B, and O. The alleles combine to produce four observable blood types according to dominance rules (A and B are codominant; O is recessive).
+Each person inherits two alleles of the ABO gene, one from each parent. There are three possible alleles, namely A, B, and O. The alleles combine to produce four observable blood types according to dominance rules where A and B are codominant while O is recessive.
 
-```
-┌─────────────────────────────────────────┐
-│     Genotype → Blood Type Mapping       │
-├──────────────┬──────────────────────────┤
-│  Genotype    │  Blood Type              │
-├──────────────┼──────────────────────────┤
-│  AA or AO    │  Type A                  │
-│  BB or BO    │  Type B                  │
-│  AB          │  Type AB                 │
-│  OO          │  Type O                  │
-└──────────────┴──────────────────────────┘
-        Figure 1: Genotype-phenotype mapping
-```
+The genotype to phenotype mapping works as follows. A person with genotype AA or AO has blood type A. A person with genotype BB or BO has blood type B. A person with genotype AB has blood type AB. Only a person with genotype OO has blood type O.
 
-This mapping creates an inference challenge: observing blood type A tells us the genotype is AA or AO, but does not distinguish between them.
+This mapping creates an inference challenge because observing blood type A tells us the genotype is AA or AO, but does not distinguish between them.
 
 ### 2.2 Population Genetics in Wumponia
 
-The scenario involves families in Wumponia, a fictional country with two regions having different allele frequencies:
+The scenario involves families in Wumponia, a fictional country with two regions having different allele frequencies. In North Wumponia, the allele frequencies are P(A) = 0.50, P(B) = 0.25, and P(O) = 0.25. In South Wumponia, the frequencies are quite different with P(A) = 0.15, P(B) = 0.55, and P(O) = 0.30.
 
-```
-┌─────────────────────────────────────────────────────┐
-│        Allele Frequencies by Region                 │
-├─────────────────┬─────────┬─────────┬───────────────┤
-│  Region         │  P(A)   │  P(B)   │  P(O)         │
-├─────────────────┼─────────┼─────────┼───────────────┤
-│  North Wumponia │  0.50   │  0.25   │  0.25         │
-│  South Wumponia │  0.15   │  0.55   │  0.30         │
-└─────────────────┴─────────┴─────────┴───────────────┘
-        Figure 2: Population allele frequencies
-```
-
-These frequencies serve as prior probabilities for **founder individuals**—those without known parents in the family tree.
+These frequencies serve as prior probabilities for **founder individuals**, which are those without known parents in the family tree. For individuals whose parents are known, their allele probabilities are determined by inheritance rather than population priors.
 
 ### 2.3 Evidence Types
 
-Three types of laboratory tests provide evidence:
+Three types of laboratory tests provide evidence in our problem.
 
-1. **Standard blood type test:** Directly observes a person's blood type (always correct)
-2. **Mixed blood test:** Blood from two people is combined; the result shows which antigens are present in the mixture
-3. **Paired blood test:** Two people are tested together, but labels may be swapped with 20% probability
+The first type is the **standard blood type test** which directly observes a person's blood type. We assume this test is always correct.
+
+The second type is the **mixed blood test** where blood from two people is combined. The result shows which antigens are present in the mixture. For example, if one person has type A and the other has type B, the mixture would show type AB since both antigens are present.
+
+The third type is the **paired blood test** where two people are tested together but the laboratory might accidentally swap the labels with 20% probability. This means the result attributed to person 1 could actually be person 2's blood type and vice versa.
 
 ## 3 Model Architecture
 
 ### 3.1 Network Structure
 
-The central design decision is to model **causal** relationships rather than diagnostic ones. Although we want to infer blood types from test results, we structure the network with edges pointing from causes to effects.
+The central design decision we made was to model **causal** relationships rather than diagnostic ones. Although we want to infer blood types from test results, we structure the network with edges pointing from causes to effects.
+
+Each person is represented by three random variables in the network. The first two are Allele1 and Allele2, representing the two inherited alleles with possible values A, B, or O. The third is BloodType representing the observable phenotype with possible values A, B, AB, or O.
+
+Figure 1 shows the network structure for a minimal family with father, mother, and child.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Bayesian Network Structure                    │
-│                                                                  │
-│   Father_Allele1 ──┐                    Mother_Allele1 ──┐      │
-│                    ├─► Father_Contrib                    ├─► Mother_Contrib
-│   Father_Allele2 ──┘         │          Mother_Allele2 ──┘         │
-│                              │                                     │
-│                              ▼                                     ▼
-│                        Child_Allele1                        Child_Allele2
-│                              │                                     │
-│                              └──────────────┬──────────────────────┘
-│                                             │
-│                                             ▼
-│                                      Child_BloodType
-│                                             │
-│                                             ▼
-│                                       Test_Result
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-        Figure 3: Network structure for a minimal family
+    Father_Allele1 ────┐
+                       ├──► Father_Contribution ──► Child_Allele1
+    Father_Allele2 ────┘                                   │
+                                                           │
+    Mother_Allele1 ────┐                                   │
+                       ├──► Mother_Contribution ──► Child_Allele2
+    Mother_Allele2 ────┘                                   │
+                                                           │
+                                                           ▼
+                                                    Child_BloodType
+                                                           │
+                                                           ▼
+                                                      Test_Result
+
+                    Figure 1: Network structure for a minimal family
 ```
 
-Each person is represented by three nodes:
-- **Allele1, Allele2:** The two inherited alleles (values: A, B, O)
-- **BloodType:** The observable phenotype (values: A, B, AB, O)
+### 3.2 Why We Chose Causal Over Diagnostic Modeling
 
-### 3.2 Inheritance Modeling
+When we first approached this problem, it seemed natural to draw edges from test results toward blood types since we observe tests and want to infer types. However, this diagnostic direction creates problems.
 
-I introduce intermediate **contribution nodes** to represent the allele each parent passes to the child. The conditional probability table for contributions encodes Mendelian inheritance:
+With causal edges, the conditional probability tables are natural and intuitive. For example, the question "what allele does a parent with genotype AO pass?" has an obvious answer of 50% for each allele. The reverse question "if the child has allele A, what was the parent's genotype?" requires Bayes rule and depends on population priors.
 
-```
-┌────────────────────────────────────────────────────────┐
-│     Contribution CPT (Parent with alleles X, Y)        │
-├────────────────────┬───────────────────────────────────┤
-│  Parent Genotype   │  P(contribute X)  P(contribute Y) │
-├────────────────────┼───────────────────────────────────┤
-│  X = Y (e.g., AA)  │       1.0              0.0        │
-│  X ≠ Y (e.g., AO)  │       0.5              0.5        │
-└────────────────────┴───────────────────────────────────┘
-        Figure 4: Conditional probability table for inheritance
-```
+Causal modeling also keeps the components separate. The inheritance rules, the genotype to phenotype mapping, and the test semantics are all independent pieces of domain knowledge. In the diagnostic direction, these would become tangled together.
 
-### 3.3 Evidence Integration
+### 3.3 Inheritance Modeling with Contribution Nodes
 
-**Mixed tests** are modeled with an additional node whose CPT encodes antigen combination:
+We introduce intermediate **contribution nodes** to represent the allele each parent passes to the child. This was a key design decision that simplified our probability tables.
 
-```
-┌──────────────────────────────────────────────────┐
-│      Mixed Blood Test Result Logic               │
-├──────────────────────────────────────────────────┤
-│  If either person has A antigen → mixture has A  │
-│  If either person has B antigen → mixture has B  │
-│  Example: Person1=A, Person2=B → Mixture=AB      │
-└──────────────────────────────────────────────────┘
-        Figure 5: Mixed test semantics
-```
+Without contribution nodes, the child's allele would depend directly on both parent alleles, requiring a table with 9 columns for the 3x3 combinations of parent alleles. With contribution nodes, we have two smaller tables instead.
 
-**Paired tests** require modeling the correlation between two results. I use a joint node with 16 states (all pairs of blood types):
+The contribution node encodes Mendelian inheritance simply. If a parent has two identical alleles like AA, they contribute that allele with probability 1.0. If a parent has two different alleles like AO, they contribute each with probability 0.5.
 
-```
-┌────────────────────────────────────────────────────────────┐
-│           Paired Test CPT                                  │
-├────────────────────────────────────────────────────────────┤
-│  If actual types differ:                                   │
-│    80% probability: reports match actual types             │
-│    20% probability: reports are swapped                    │
-│  If actual types are same:                                 │
-│    100% probability: reports match (swap has no effect)    │
-└────────────────────────────────────────────────────────────┘
-        Figure 6: Paired test probability model
-```
+### 3.4 Modeling the Three Evidence Types
+
+For **standard tests**, we simply set the BloodType node to its observed value as evidence.
+
+For **mixed tests**, we add a new node representing the mixture result. This node depends on both individuals' BloodType nodes. The conditional probability table is deterministic because the mixture shows A antigen if either person has A, and shows B antigen if either person has B.
+
+For **paired tests**, we needed to model the correlation between the two results. If a swap happens, both results are swapped together. We use a joint node with 16 states representing all pairs of blood types. The table encodes that if the actual types differ, there is 80% probability that reports match actual types and 20% probability that they are swapped.
 
 ## 4 Evaluation
 
-### 4.1 Test Categories
+### 4.1 Test Categories and Results
 
-The evaluation uses 29 test cases organized into four categories:
+We evaluated our model on 29 test cases organized into four categories. Category A contains 11 problems with minimal families of three people and only standard tests. Category B has 6 problems with extended families and standard tests. Category C has 6 problems with extended families and mixed tests. Category D has 6 problems with extended families and paired tests.
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                    Problem Categories                              │
-├──────────┬─────────────────────┬───────────────────┬───────────────┤
-│ Category │ Family Structure    │ Evidence Types    │ # Problems    │
-├──────────┼─────────────────────┼───────────────────┼───────────────┤
-│    A     │ Minimal (3 people)  │ Standard only     │     11        │
-│    B     │ Extended families   │ Standard only     │      6        │
-│    C     │ Extended families   │ Standard + Mixed  │      6        │
-│    D     │ Extended families   │ Standard + Paired │      6        │
-└──────────┴─────────────────────┴───────────────────┴───────────────┘
-        Figure 7: Overview of test categories
-```
+All 29 problems were solved correctly. Since we use variable elimination which provides exact inference, the matching results confirm that our model is correctly specified.
 
-### 4.2 Running Example: Problem A-00
+### 4.2 Running Example
 
-Consider a family in North Wumponia: father Youssef, mother Samantha, child Lyn. Evidence: Youssef has blood type A. Query: What is Lyn's blood type distribution?
+To illustrate how our model works, consider problem A-00. We have a family in North Wumponia with father Youssef, mother Samantha, and child Lyn. The only evidence is that Youssef has blood type A. We want to find Lyn's blood type distribution.
 
-**Step 1: Infer Youssef's genotype distribution**
+Since Youssef has type A, his genotype is either AA or AO. Using Bayes rule with North Wumponia priors, both genotypes have probability 0.5 given the blood type observation.
 
-Since Youssef has type A, his genotype is AA or AO. Using Bayes' rule with population priors:
-- P(AA | type A) = P(type A | AA) × P(AA) / P(type A) = 1 × 0.25 / 0.5 = 0.5
-- P(AO | type A) = 0.5
+From this, we can compute that Youssef contributes allele A with probability 0.75 (certain if he is AA, fifty percent if he is AO) and contributes O with probability 0.25.
 
-**Step 2: Compute allele contribution probabilities**
+Samantha has no evidence so her alleles follow the population priors directly.
 
-From Youssef: P(contribute A) = 0.5×1.0 + 0.5×0.5 = 0.75, P(contribute O) = 0.25
+Working through all the inheritance combinations, our system computes Lyn's distribution as P(O) = 0.0625, P(A) = 0.6875, P(B) = 0.0625, and P(AB) = 0.1875. This matches the expected solution exactly.
 
-From Samantha (no evidence): follows population priors directly
+### 4.3 Comparison of Problem Difficulty
 
-**Step 3: Compute Lyn's distribution**
+Figure 2 shows how the problem categories compare in terms of complexity. The Category A problems are the simplest since they involve only three people and direct blood type tests. Categories B through D introduce additional challenges with larger families and more complex evidence types.
 
 ```
-┌───────────────────────────────────────────────────────┐
-│        Lyn's Blood Type Distribution                  │
-├──────────────┬────────────────────────────────────────┤
-│  Blood Type  │  Probability                           │
-├──────────────┼────────────────────────────────────────┤
-│      O       │  0.0625                                │
-│      A       │  0.6875                                │
-│      B       │  0.0625                                │
-│      AB      │  0.1875                                │
-└──────────────┴────────────────────────────────────────┘
-        Figure 8: Solution for Problem A-00
+    Category A (11 problems): Simple families, standard tests only
+         ████████████████████████████████  All correct
+    
+    Category B (6 problems): Extended families, standard tests
+         ██████████████████████████████████  All correct
+    
+    Category C (6 problems): Extended families, mixed tests
+         ██████████████████████████████████  All correct
+    
+    Category D (6 problems): Extended families, paired tests
+         ██████████████████████████████████  All correct
+
+                    Figure 2: Results across problem categories
 ```
 
-The system produces exactly these values.
-
-### 4.3 Results Summary
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                    Evaluation Results                              │
-├──────────┬─────────────┬───────────────┬───────────────────────────┤
-│ Category │ # Problems  │ # Correct     │ Avg. Runtime (seconds)    │
-├──────────┼─────────────┼───────────────┼───────────────────────────┤
-│    A     │     11      │     11        │        1.2                │
-│    B     │      6      │      6        │        1.5                │
-│    C     │      6      │      6        │        1.8                │
-│    D     │      6      │      6        │        2.1                │
-├──────────┼─────────────┼───────────────┼───────────────────────────┤
-│  Total   │     29      │     29        │        1.6 (avg)          │
-└──────────┴─────────────┴───────────────┴───────────────────────────┘
-        Figure 9: Evaluation results by category
-```
-
-All 29 problems are solved correctly. Variable elimination provides exact inference, so matching results confirms the model is correctly specified.
+The fact that all categories achieved perfect accuracy demonstrates that our causal modeling approach handles both simple and complex scenarios effectively.
 
 ## 5 Discussion
 
-### 5.1 Causal vs Diagnostic Modeling
+### 5.1 Key Insights
 
-The most significant insight is that **causal modeling** (edges from genotype to phenotype) produces cleaner specifications than diagnostic modeling (edges from observations to conclusions), even when inference goes "backwards."
+The most significant insight from this work is that causal modeling produces cleaner specifications than diagnostic modeling, even when the inference goal is to determine causes from effects. This principle applies broadly to probabilistic modeling.
 
-```
-┌────────────────────────────────────────────────────────────────────┐
-│           Comparison: Causal vs Diagnostic Modeling                │
-├─────────────────────┬──────────────────────────────────────────────┤
-│  Aspect             │  Causal Approach       │  Diagnostic Approach│
-├─────────────────────┼────────────────────────┼─────────────────────┤
-│  CPT specification  │  Natural, intuitive    │  Requires Bayes'    │
-│                     │                        │  rule, prior-       │
-│                     │                        │  dependent          │
-├─────────────────────┼────────────────────────┼─────────────────────┤
-│  Modularity         │  Components separate   │  Components tangled │
-├─────────────────────┼────────────────────────┼─────────────────────┤
-│  Query flexibility  │  Any query supported   │  Restructuring may  │
-│                     │                        │  be needed          │
-└─────────────────────┴────────────────────────┴─────────────────────┘
-        Figure 10: Comparison of modeling approaches
-```
+Another important finding is that intermediate nodes like our contribution nodes can greatly simplify probability tables. These nodes also correspond to meaningful biological concepts, namely the actual allele transmitted during reproduction, which makes the model easier to understand and debug.
 
-### 5.2 Role of Intermediate Nodes
+### 5.2 Design Decisions We Made
 
-The contribution nodes serve two purposes:
-1. **Simplify CPTs:** Without them, child allele CPTs would have 9 columns (3×3 parent allele combinations). With them, we have smaller, cleaner tables.
-2. **Match biology:** They represent the actual allele transmitted during reproduction—a real quantity even if unobservable.
+We chose to use the pgmpy library for Bayesian network construction and inference. This allowed us to focus on the modeling aspects rather than implementing inference algorithms from scratch. Variable elimination in pgmpy provided exact inference which was important for validating correctness.
+
+We represented each problem in JSON format which was straightforward to parse. The family tree was represented as a list of parent child relationships, and we used topological sorting to ensure parents were processed before children when building the network.
+
+For paired tests, our initial attempt modeled the two results as separate nodes with independent noise. This failed because it did not capture the correlation that both results are swapped together or neither is swapped. Switching to a joint node fixed this problem.
 
 ### 5.3 Limitations
 
-The current implementation has several limitations:
-
-- **Single-region assumption:** All founders assumed from same region
-- **ABO only:** Real blood typing includes Rh factor and minor antigens
-- **Perfect standard tests:** Only paired tests model measurement error
-- **No mutations:** Cannot represent de novo mutations
+The current implementation has several limitations. All founders are assumed to come from the same region of Wumponia. The system only handles ABO blood types while real blood typing includes Rh factor and other antigens. Standard tests are assumed perfect while only paired tests model measurement error. The system cannot represent de novo mutations where a child has an allele neither parent carries.
 
 ## 6 Conclusion
 
-This report demonstrated that Bayesian networks effectively model blood type inference in family trees with incomplete information. The key finding is that **causal structure**—edges following biological causation rather than inference direction—yields cleaner, more modular models.
+In this report we have explored how to infer blood type probabilities in family trees with incomplete information. A key challenge was to find a suitable model structure. It turns out that causal modeling where edges point from genotype to phenotype is much cleaner than diagnostic modeling.
 
-The approach successfully handles three evidence types (standard, mixed, paired tests) and produces correct probability distributions across all 29 test cases. The broader lesson: when building probabilistic models for diagnostic inference, structure the model causally and let the inference algorithm handle the reversal.
+Our approach successfully handles three evidence types including standard tests, mixed sample tests, and paired tests with label swaps. The system produces correct probability distributions across all 29 test cases.
+
+The broader lesson from this work is that when building probabilistic models for diagnostic inference, one should structure the model causally and let the inference algorithm handle computing probabilities in the reverse direction.
 
 ## References
 
-[1] Pearl, J. (1988). *Probabilistic Reasoning in Intelligent Systems: Networks of Plausible Inference*. Morgan Kaufmann.
+[1] Pearl, J. (1988). Probabilistic Reasoning in Intelligent Systems. Morgan Kaufmann.
 
-[2] Koller, D. & Friedman, N. (2009). *Probabilistic Graphical Models: Principles and Techniques*. MIT Press.
+[2] Koller, D. and Friedman, N. (2009). Probabilistic Graphical Models. MIT Press.
 
-[3] Dean, L. (2005). Blood Groups and Red Cell Antigens. National Center for Biotechnology Information. https://www.ncbi.nlm.nih.gov/books/NBK2267/
+[3] Dean, L. (2005). Blood Groups and Red Cell Antigens. National Center for Biotechnology Information.
 
-[4] Ankan, A. & Panda, A. (2015). pgmpy: Probabilistic graphical models using Python. *Proceedings of the 14th Python in Science Conference*.
+[4] Ankan, A. and Panda, A. (2015). pgmpy: Probabilistic graphical models using Python. Proceedings of the 14th Python in Science Conference.
 
 ## A Extra Comments
 
-1. The format of problem files (JSON) is not discussed because it presents no interesting challenges—the parsing is straightforward.
+1. The format of problem files (JSON) is not discussed in detail because the parsing was straightforward and presented no interesting challenges.
 
-2. Implementation details like function names and class structure are omitted because they are "don't-care choices" that do not affect the solution's correctness or efficiency.
+2. Implementation details like function names and class structure are omitted because they are what we call "don't care choices" that do not affect the correctness of the solution.
 
-3. The choice of Python and pgmpy library represents a reasonable engineering decision but is not the focus of this report—the conceptual model architecture is what matters.
+3. We did not include runtime comparisons because for these problem sizes any reasonable implementation completes quickly. The focus is on correctness rather than efficiency.
 
-4. The evaluation focuses on correctness rather than runtime because for these problem sizes, any reasonable implementation completes quickly.
+4. This report does not have a separate preliminaries section because the necessary background on Bayesian networks is integrated into the model architecture discussion where it is most relevant.
