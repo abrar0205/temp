@@ -1,0 +1,12 @@
+[
+    {
+        "type": "bloodtype",
+        "person": "Lindsay",
+        "distribution": {
+            "O": 0.0,
+            "A": 0.266666667,
+            "B": 0.2,
+            "AB": 0.533333333
+        }
+    }
+]

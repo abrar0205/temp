@@ -1,0 +1,22 @@
+[
+    {
+        "type": "bloodtype",
+        "person": "Leslie",
+        "distribution": {
+            "O": 0.0625,
+            "A": 0.546875,
+            "B": 0.15625,
+            "AB": 0.234375
+        }
+    },
+    {
+        "type": "bloodtype",
+        "person": "Samantha",
+        "distribution": {
+            "O": 0.0625,
+            "A": 0.6875,
+            "B": 0.0625,
+            "AB": 0.1875
+        }
+    }
+]
