@@ -1,4 +1,5 @@
 {
+  "_comment": "DEVELOPMENT ONLY - Do not use these credentials in production. Replace secrets with environment variables or a secrets management system.",
   "realm": "mlflow",
   "enabled": true,
   "sslRequired": "none",
