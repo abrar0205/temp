@@ -86,7 +86,8 @@ fi
 print_status "Waiting for Redis..."
 timeout=30
 while [ $timeout -gt 0 ]; do
-    if docker exec mlflow-redis redis-cli -a "${REDIS_PASSWORD:-redis_password}" ping > /dev/null 2>&1; then
+    # Use --no-auth-warning to suppress password exposure warning
+    if docker exec mlflow-redis redis-cli --no-auth-warning -a "${REDIS_PASSWORD:-redis_password}" ping > /dev/null 2>&1; then
         print_status "Redis is ready!"
         break
     fi

@@ -169,6 +169,7 @@ ADMIN_GROUP_ID=$(keycloak_api GET "/${REALM_NAME}/groups" | jq -r '.[] | select(
 USERS_GROUP_ID=$(keycloak_api GET "/${REALM_NAME}/groups" | jq -r '.[] | select(.name=="mlflow_users") | .id')
 
 # Create test user
+# WARNING: This password is for DEVELOPMENT ONLY. Generate a secure password for production!
 TEST_USERNAME="mlflow_user"
 TEST_PASSWORD="password123"
 

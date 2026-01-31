@@ -44,13 +44,13 @@ The MLflow OIDC server image is built from the Dockerfile based on [mlflow-track
 ### Build Command
 
 ```bash
-docker build --build-arg UV_HTTP_TIMEOUT=300 -t mlflow-oidc-server:latest .
+docker build --build-arg PIP_TIMEOUT=300 -t mlflow-oidc-server:latest .
 ```
 
 **Command Explanation:**
 
 - `docker build` - Build a Docker image from a Dockerfile
-- `--build-arg UV_HTTP_TIMEOUT=300` - Set timeout for package installation to 300 seconds
+- `--build-arg PIP_TIMEOUT=300` - Set pip timeout for package installation to 300 seconds
   - Prevents build failures when downloading large packages (mlflow, dependencies)
   - 300 seconds (5 minutes) allows sufficient time for slow network connections
 - `-t mlflow-oidc-server:latest` - Tag the image
