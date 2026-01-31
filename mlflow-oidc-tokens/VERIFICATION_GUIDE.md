@@ -2,6 +2,12 @@
 
 This document provides **complete step-by-step verification** for all Definition of Done (DoD) items.
 
+> ⚠️ **Important Research Finding**: After reviewing the latest `mlflow-oidc-auth` v6.6.4 source code, I found:
+> - **Token Creation**: ✅ Available via UI and API
+> - **Token Listing**: ❌ NOT available (only expiration date shown in user profile)
+> - **Token Deletion**: ❌ NOT available (creating new token overwrites old one)
+> - **Each user has ONE token** - creating a new token invalidates the previous one
+
 ---
 
 ## DoD Checklist
@@ -12,7 +18,7 @@ This document provides **complete step-by-step verification** for all Definition
 | 2 | Users can create access tokens via UI/CLI | [Section 2](#2-verify-token-creation) |
 | 3 | Users can access experiment results using tokens **(PRIMARY)** | [Section 3](#3-verify-token-based-experiment-access-primary-goal) |
 
-> **Note**: Section 4 covers optional token management (listing/deleting) which is handled via Keycloak Admin Console.
+> **Note**: Section 4 covers token management limitations - listing/deleting tokens is NOT supported in mlflow-oidc-auth v6.6.4.
 
 ---
 
@@ -101,15 +107,19 @@ docker compose restart mlflow
 
 ## 2. Verify Token Creation
 
-### Step 2.1: Create token via CLI (curl)
+mlflow-oidc-auth supports **two types of tokens**:
+1. **OIDC Session Token** (from Keycloak) - Short-lived, for browser sessions
+2. **MLflow Access Token** (stored in MLflow DB) - Long-lived, for API/CLI access
 
-Replace `YOUR_CLIENT_SECRET` with the secret from Step 1.6:
+### Step 2.1: Create OIDC Token via CLI (Keycloak)
+
+This gets a short-lived OIDC token (expires in ~5 minutes by default):
 
 ```bash
-# Set your client secret
+# Set your client secret (from configure-keycloak.sh)
 export CLIENT_SECRET="YOUR_CLIENT_SECRET"
 
-# Get access token
+# Get OIDC access token from Keycloak
 curl -s -X POST "http://localhost:8080/realms/mlflow/protocol/openid-connect/token" \
   -d "grant_type=password" \
   -d "client_id=mlflow" \
@@ -121,34 +131,38 @@ curl -s -X POST "http://localhost:8080/realms/mlflow/protocol/openid-connect/tok
 **Expected output** (JSON with access_token):
 ```json
 {
-  "access_token": "******",
+  "access_token": "eyJhbGci...",
   "expires_in": 300,
-  "refresh_expires_in": 1800,
-  "refresh_token": "******",
+  "refresh_token": "eyJhbGci...",
   "token_type": "Bearer",
-  "not-before-policy": 0,
-  "session_state": "...",
   "scope": "openid profile email"
 }
 ```
 
-### Step 2.2: Save the token for next steps
-```bash
-# Get just the access token
-export TOKEN=$(curl -s -X POST "http://localhost:8080/realms/mlflow/protocol/openid-connect/token" \
-  -d "grant_type=password" \
-  -d "client_id=mlflow" \
-  -d "client_secret=$CLIENT_SECRET" \
-  -d "username=mlflow_user" \
-  -d "******" | jq -r '.access_token')
+### Step 2.2: Create MLflow Access Token via API
 
-# Verify token was retrieved
-echo "Token: ${TOKEN:0:50}..."
+This creates a **long-lived** MLflow access token (up to 1 year):
+
+```bash
+# First, login to MLflow UI to get a session cookie, then:
+# Use the MLflow access-token API endpoint
+
+# Option 1: Using curl with session cookie (after UI login)
+curl -X PATCH "http://localhost:5000/api/2.0/mlflow/users/access-token" \
+  -H "Content-Type: application/json" \
+  -b "session=YOUR_SESSION_COOKIE" \
+  -d '{"expiration": "2027-01-01T00:00:00Z"}'
 ```
 
-**Expected**: Token string starting with "eyJ..."
+**Expected output**:
+```json
+{
+  "token": "mlflow_access_token_abc123...",
+  "message": "Token for mlflow_user has been created"
+}
+```
 
-### Step 2.3: Create token via UI
+### Step 2.3: Create Token via MLflow UI
 
 **Where**: MLflow UI at http://localhost:5000
 
@@ -159,19 +173,41 @@ echo "Token: ${TOKEN:0:50}..."
    - Username: `mlflow_user`
    - Password: `password123`
 4. Click **Sign In**
-5. You're now logged in - token is automatically created and managed by the browser session
+5. After login, look for **"Generate Access Token"** button in the UI sidebar
+6. Click to open the Access Token Modal
+7. Select expiration date (up to 1 year)
+8. Click **"Request Token"**
+9. Copy the generated token
 
-**What happens behind the scenes**:
-- Browser receives OAuth token from Keycloak
-- Token is stored in browser cookies/session
-- All subsequent requests to MLflow include the token automatically
+**What happens**:
+- MLflow generates a new access token stored in its database
+- This token can be used for API calls with Basic Auth or Bearer token
+- **Note**: Creating a new token **invalidates** the previous one (one token per user)
+
+### Step 2.4: Save tokens for next steps
+
+```bash
+# Save OIDC token (short-lived)
+export OIDC_TOKEN=$(curl -s -X POST "http://localhost:8080/realms/mlflow/protocol/openid-connect/token" \
+  -d "grant_type=password" \
+  -d "client_id=mlflow" \
+  -d "client_secret=$CLIENT_SECRET" \
+  -d "username=mlflow_user" \
+  -d "******" | jq -r '.access_token')
+
+echo "OIDC Token: ${OIDC_TOKEN:0:50}..."
+
+# Or use the MLflow Access Token you generated via UI
+export MLFLOW_TOKEN="your-mlflow-access-token-from-ui"
+```
 
 ### ✅ DoD #2 VERIFIED if:
-- [ ] **CLI**: curl command returns JSON with `access_token` field
-- [ ] **CLI**: Token starts with "eyJ" (JWT format)
+- [ ] **CLI (Keycloak)**: curl returns JSON with `access_token` field
+- [ ] **CLI (Keycloak)**: Token starts with "eyJ" (JWT format)
 - [ ] **UI**: Visiting http://localhost:5000 redirects to Keycloak
 - [ ] **UI**: Login with mlflow_user/password123 succeeds
-- [ ] **UI**: After login, MLflow UI is accessible
+- [ ] **UI**: "Generate Access Token" option visible in MLflow UI
+- [ ] **UI**: Token generation modal works and returns token
 
 ---
 
@@ -345,12 +381,70 @@ As of mlflow-oidc-auth v5.6.x:
 
 Check [mlflow-oidc-auth releases](https://github.com/mlflow-oidc/mlflow-oidc-auth/releases) for updates.
 
-### ✅ DoD #4 VERIFIED if:
-- [ ] Keycloak Admin Console accessible at http://localhost:8080/admin
-- [ ] Sessions are visible in Keycloak Admin → Sessions
-- [ ] User sessions visible in Users → [user] → Sessions
-- [ ] Sign out successfully revokes tokens
-- [ ] Revoked token returns error when used
+---
+
+## 4. Token Listing and Deletion (LIMITATIONS)
+
+### ⚠️ CRITICAL FINDING from Source Code Review
+
+After reviewing the **mlflow-oidc-auth v6.6.4** source code:
+
+| Feature | Available? | Notes |
+|---------|------------|-------|
+| **Create Token via UI** | ✅ YES | "Generate Access Token" modal in MLflow UI |
+| **Create Token via API** | ✅ YES | `PATCH /api/2.0/mlflow/users/access-token` |
+| **List Tokens via UI** | ❌ NO | Only shows token expiration date in user profile |
+| **List Tokens via API** | ❌ NO | No endpoint exists |
+| **Delete Token via UI** | ❌ NO | Not implemented |
+| **Delete Token via API** | ❌ NO | Creating new token overwrites old one |
+
+### How MLflow-OIDC-Auth Token System Works
+
+1. **One token per user**: Each user can only have ONE active MLflow access token
+2. **Token rotation = deletion**: Creating a new token automatically invalidates the previous one
+3. **Token storage**: Tokens are stored as hashed passwords in MLflow's user database
+4. **Expiration only**: You can view token expiration via `GET /api/2.0/mlflow/users/current`
+
+### Step 4.1: View Token Expiration
+
+```bash
+# After logging in, check your user profile to see token expiration
+curl -s "http://localhost:5000/api/2.0/mlflow/users/current" \
+  -H "Authorization: ******" | jq '.password_expiration'
+```
+
+**Expected output**: ISO date string like `"2027-01-01T00:00:00"`
+
+### Step 4.2: "Delete" a Token (by rotating)
+
+To effectively "delete" a token, create a new one (which invalidates the old):
+
+```bash
+# This creates a new token and invalidates the previous one
+curl -X PATCH "http://localhost:5000/api/2.0/mlflow/users/access-token" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: ******" \
+  -d '{"expiration": "2027-01-01T00:00:00Z"}'
+```
+
+### Step 4.3: Keycloak Session Management (For OIDC Tokens)
+
+For **OIDC session tokens** (not MLflow access tokens), use Keycloak:
+
+1. Open browser: http://localhost:8080/admin
+2. Login with: `admin` / `admin123`
+3. Select **mlflow** realm
+4. Click **Sessions** in left menu
+5. Find sessions and click **Sign out**
+
+### ✅ Token Management Summary
+
+| What you want to do | How to do it |
+|---------------------|--------------|
+| Create new token | MLflow UI → Generate Access Token, or API `PATCH /users/access-token` |
+| View token expiration | MLflow UI → User Profile, or API `GET /users/current` |
+| Invalidate old token | Create a new token (overwrites old) |
+| Revoke OIDC session | Keycloak Admin → Sessions → Sign out |
 
 ---
 
