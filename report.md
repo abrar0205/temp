@@ -6,7 +6,7 @@ This report explores how to infer blood type probabilities in family trees when 
 
 ## 1 Introduction
 
-Agents often need to reason about uncertain information. In medical genetics, a physician might know some family members' blood types but need to infer others. The ABO blood group system follows clear inheritance rules, yet practical inference must handle incomplete observations and imperfect laboratory tests.
+Uncertainty is everywhere. Agents constantly need to reason about partial information. Consider medical genetics. A physician might know some family members' blood types but need to infer others. The ABO blood group system follows clear inheritance rules, yet practical inference must handle incomplete observations and imperfect laboratory tests.
 
 **Research question** How can we build a probabilistic model that accurately infers blood type distributions given partial family and test information?
 
@@ -22,11 +22,11 @@ Agents often need to reason about uncertain information. In medical genetics, a 
 
 ### 2.1 The ABO Blood Group System
 
-Each person inherits two alleles of the ABO gene, one from each parent. There are three possible alleles, namely A, B, and O. The alleles combine to produce four observable blood types according to dominance rules where A and B are codominant while O is recessive.
+Genetics determines blood type. Each person inherits two alleles of the ABO gene, one from each parent. Three alleles exist: A, B, and O. These alleles combine to produce four observable blood types according to dominance rules where A and B are codominant while O is recessive.
 
-Genotype determines blood type as follows. A person with genotype AA or AO has blood type A. A person with genotype BB or BO has blood type B. A person with genotype AB has blood type AB. Only a person with genotype OO has blood type O.
+Here is how genotype maps to blood type. Someone with genotype AA or AO has blood type A. Genotype BB or BO gives blood type B. Genotype AB produces blood type AB. Only genotype OO results in blood type O.
 
-This mapping creates an inference challenge because observing blood type A tells us the genotype is AA or AO, but does not distinguish between them.
+This creates an inference puzzle. Observing blood type A tells us the genotype is AA or AO, but we cannot tell which one.
 
 ### 2.2 Population Genetics in Wumponia
 
@@ -48,9 +48,9 @@ The last type is the **paired blood test** where two people are tested together 
 
 ### 3.1 Network Structure
 
-Our central design decision was to model **causal** relationships rather than diagnostic ones. Although we want to infer blood types from test results, we structure the network with edges pointing from causes to effects.
+Here is our key design choice. We model **causal** relationships rather than diagnostic ones. Why? Although we want to infer blood types from test results, structuring the network causally makes the probability tables much simpler.
 
-Each person is represented by three random variables in the network. The first two are Allele1 and Allele2, representing the two inherited alleles with possible values A, B, or O. The third is BloodType representing the observable phenotype with possible values A, B, AB, or O.
+Each person gets three random variables. Allele1 and Allele2 represent the two inherited alleles with possible values A, B, or O. BloodType represents the observable phenotype with possible values A, B, AB, or O.
 
 Figure 1 shows the network structure for a minimal family with father, mother, and child.
 
@@ -74,19 +74,19 @@ Figure 1 shows the network structure for a minimal family with father, mother, a
 
 ### 3.2 Why We Chose Causal Over Diagnostic Modeling
 
-When we first approached this problem, it seemed natural to draw edges from test results toward blood types since we observe tests and want to infer types. However, this diagnostic direction creates problems.
+At first, diagnostic edges seemed natural. We observe tests and want to infer types, so why not draw edges that way? But this direction causes problems.
 
-With causal edges, the conditional probability tables are natural and easy to specify. For example, the question "what allele does a parent with genotype AO pass?" has an obvious answer of 50% for each allele. The reverse question "if the child has allele A, what was the parent's genotype?" requires Bayes rule and depends on population priors.
+Causal edges make probability tables easy to write. Ask "what allele does a parent with genotype AO pass?" and the answer is obvious: 50% for each. Now try the reverse question: "if the child has allele A, what was the parent's genotype?" Suddenly you need Bayes rule and it depends on population priors. Much harder.
 
-Causal modeling also keeps the components separate. The inheritance rules, the genotype to phenotype mapping, and the test semantics are all independent pieces of domain knowledge. In the diagnostic direction, these would become tangled together.
+There is another benefit too. Causal modeling keeps components separate. The inheritance rules, the genotype to phenotype mapping, and the test semantics are independent pieces of domain knowledge. In the diagnostic direction, these would become tangled together.
 
 ### 3.3 Inheritance Modeling with Contribution Nodes
 
-We introduce intermediate **contribution nodes** to represent the allele each parent passes to the child. This was a key design decision that simplified our probability tables.
+Intermediate nodes helped us a lot. We introduce **contribution nodes** to represent the allele each parent passes to the child. This seems like a small change but it simplified our probability tables dramatically.
 
-Without contribution nodes, the child's allele would depend directly on both parent alleles, requiring a table with 9 columns for the 3x3 combinations of parent alleles. With contribution nodes, we have two smaller tables instead.
+Think about it. Without contribution nodes, the child's allele depends directly on both parent alleles. That means a table with 9 columns for the 3x3 combinations. With contribution nodes? Two small tables instead.
 
-Contribution nodes encode Mendelian inheritance simply. If a parent has two identical alleles like AA, they contribute that allele with probability 1.0. If a parent has two different alleles like AO, they contribute each with probability 0.5.
+The biology makes sense too. Contribution nodes encode Mendelian inheritance. If a parent has two identical alleles like AA, they contribute that allele with probability 1.0. If a parent has two different alleles like AO, each has probability 0.5.
 
 ### 3.4 Modeling the Three Evidence Types
 
@@ -106,15 +106,15 @@ All 80 problems were solved correctly. Since we use variable elimination which p
 
 ### 4.2 Running Example
 
-To illustrate how our model works, consider problem A-00. We have a family in North Wumponia with father Youssef, mother Samantha, and child Lyn. The only evidence is that Youssef has blood type A. We want to find Lyn's blood type distribution.
+Let us walk through problem A-00. The setup is simple. We have a family in North Wumponia with father Youssef, mother Samantha, and child Lyn. Only one piece of evidence exists: Youssef has blood type A. What is Lyn's blood type distribution?
 
-Since Youssef has type A, his genotype is either AA or AO. Using Bayes rule with North Wumponia priors, both genotypes have probability 0.5 given the blood type observation.
+Start with Youssef. Type A means genotype AA or AO. Using Bayes rule with North Wumponia priors, both turn out equally likely.
 
-From this, we can compute that Youssef contributes allele A with probability 0.75 (certain if he is AA, fifty percent if he is AO) and contributes O with probability 0.25.
+What does Youssef contribute to Lyn? If he is AA, he definitely passes A. If he is AO, he passes A half the time. Working this out, he contributes A with probability 0.75 and O with probability 0.25.
 
-Samantha has no evidence so her alleles follow the population priors directly.
+Samantha is unknown so she follows population priors directly.
 
-Working through all the inheritance combinations, our system computes Lyn's distribution as P(O) = 0.0625, P(A) = 0.6875, P(B) = 0.0625, and P(AB) = 0.1875. This matches the expected solution exactly.
+Now combine everything. Our system computes Lyn's distribution as P(O) = 0.0625, P(A) = 0.6875, P(B) = 0.0625, and P(AB) = 0.1875. This matches the expected solution exactly.
 
 ### 4.3 Comparison of Problem Difficulty
 
@@ -145,29 +145,29 @@ Since all categories achieved perfect accuracy, we are confident that our causal
 
 ### 5.1 Key Insights
 
-What we learned from this work is that causal modeling produces cleaner specifications than diagnostic modeling, even when the inference goal is to determine causes from effects. Causal structure works well for many types of probabilistic modeling.
+What did we learn? The big takeaway is that causal modeling produces cleaner specifications than diagnostic modeling, even when you actually want to do diagnosis. This might seem counterintuitive but it makes sense once you try both approaches.
 
-Another important finding is that intermediate nodes like our contribution nodes can greatly simplify probability tables. These nodes also correspond to meaningful biological concepts, namely the actual allele transmitted during reproduction, which makes the model easier to understand and debug.
+Intermediate nodes matter too. Our contribution nodes do not just simplify tables. They correspond to real biological concepts, namely the actual allele transmitted during reproduction. This makes the model easier to understand and debug.
 
 ### 5.2 Design Decisions We Made
 
-We chose to use the pgmpy library for Bayesian network construction and inference. This allowed us to focus on the modeling aspects rather than writing inference algorithms from scratch. Variable elimination in pgmpy provided exact inference which was important for validating correctness.
+Why pgmpy? We needed a Bayesian network library and pgmpy seemed mature. It let us focus on modeling instead of writing inference algorithms from scratch. Variable elimination gave us exact answers, which mattered for checking correctness.
 
-We represented each problem in JSON format which was simple to parse. The family tree was represented as a list of parent child relationships, and we used topological sorting to ensure parents were processed before children when building the network.
+JSON worked well for problem input. Simple to parse. The family tree was a list of parent child relationships, and we sorted topologically to process parents before children.
 
-For paired tests, our initial attempt modeled the two results as separate nodes with independent noise. This failed because it did not capture the correlation that both results are swapped together or neither is swapped. Switching to a joint node fixed this problem.
+One thing that tripped us up: paired tests. Our first try used two separate noise nodes. Wrong. The swap is correlated. If labels get swapped, both results flip together. A joint node with 16 states fixed this.
 
 ### 5.3 Limitations
 
-Our current system has several limitations. All founders are assumed to come from the same region of Wumponia. We only handle ABO blood types while real blood typing includes Rh factor and other antigens. Standard tests are assumed perfect while only paired tests model measurement error. The system cannot represent de novo mutations where a child has an allele neither parent carries.
+Our system could be better. Several limitations exist. All founders must come from the same Wumponia region. We only handle ABO blood types while real labs also check Rh factor. Standard tests are perfect in our model but real tests can have errors too. De novo mutations? Not supported. A child could have an allele neither parent carries, but we cannot represent that.
 
 ## 6 Conclusion
 
-We have explored how to infer blood type probabilities in family trees with incomplete information. A key challenge was to find a suitable model structure. It turns out that causal modeling where edges point from genotype to phenotype is much cleaner than diagnostic modeling.
+What have we done? We built a system to infer blood type probabilities from partial family and test data. The key challenge was finding a good model structure. Causal modeling won. Edges point from genotype to phenotype, not the other way around. Much cleaner.
 
-Our approach successfully handles three evidence types including standard tests, mixed sample tests, and paired tests with label swaps. The system produces correct probability distributions across all 80 test cases.
+Three evidence types work: standard tests, mixed samples, and paired tests with label swaps. All 80 test cases pass.
 
-A broader lesson from this work is that when building probabilistic models for diagnostic inference, one should structure the model causally and let the inference algorithm handle computing probabilities in the reverse direction.
+The broader lesson? When building probabilistic models for diagnostic inference, structure the model causally. Let the inference algorithm handle the reverse direction. It seems backwards but it works.
 
 ## References
 
