@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This report explores how to infer blood type probabilities in family trees when only partial information is available. We develop a Bayesian network model that represents genetic inheritance causally, from parental alleles to child alleles to observable blood types. The model handles three evidence types including direct tests, mixed sample tests, and paired tests with potential labeling errors. We tested this approach on 29 problems of varying complexity and found that it produces correct probability distributions while keeping the model structure clean and modular. A key finding is that modeling in the causal direction yields simpler probability specifications than the diagnostic direction, even when the inference goal is to determine causes from observed effects.
+This report explores how to infer blood type probabilities in family trees when only partial information is available. We develop a Bayesian network model that represents genetic inheritance causally, from parental alleles to child alleles to observable blood types. The model handles three evidence types including direct tests, mixed sample tests, and paired tests with potential labeling errors. We tested this approach on 80 problems of varying complexity and found that it produces correct probability distributions while keeping the model structure clean and modular. A key finding is that modeling in the causal direction yields simpler probability specifications than the diagnostic direction, even when the inference goal is to determine causes from observed effects.
 
 ## 1 Introduction
 
@@ -100,9 +100,9 @@ For **paired tests**, we needed to model the correlation between the two results
 
 ### 4.1 Test Categories and Results
 
-We evaluated our model on 29 test cases organized into four categories. Category A contains 11 problems with minimal families of three people and only standard tests. Category B has 6 problems with extended families and standard tests. Category C has 6 problems with extended families and mixed tests. Category D has 6 problems with extended families and paired tests.
+We evaluated our model on 80 test cases organized into five categories. Category A contains 15 problems with minimal families of three people and only standard tests. Category B has 20 problems with extended families and standard tests across both North and South Wumponia. Category C has 15 problems with extended families and mixed tests. Category D has 15 problems with extended families and paired tests. Category E has 15 problems combining all evidence types with families spanning both Wumponia regions.
 
-All 29 problems were solved correctly. Since we use variable elimination which provides exact inference, the matching results confirm that our model is correctly specified.
+All 80 problems were solved correctly. Since we use variable elimination which provides exact inference, the matching results confirm that our model is correctly specified.
 
 ### 4.2 Running Example
 
@@ -118,19 +118,22 @@ Working through all the inheritance combinations, our system computes Lyn's dist
 
 ### 4.3 Comparison of Problem Difficulty
 
-Figure 2 shows how the problem categories differ. The Category A problems are the simplest since they involve only three people and direct blood type tests. Categories B through D introduce additional challenges with larger families and more complex evidence types.
+Figure 2 shows how the problem categories differ. The Category A problems are the simplest since they involve only three people and direct blood type tests. Categories B through E introduce additional challenges with larger families, multiple regions, and more complex evidence types.
 
 ```
-    Category A (11 problems): Simple families, standard tests only
+    Category A (15 problems): Simple families, standard tests only
          ████████████████████████████████  All correct
     
-    Category B (6 problems): Extended families, standard tests
+    Category B (20 problems): Extended families, two regions, standard tests
          ██████████████████████████████████  All correct
     
-    Category C (6 problems): Extended families, mixed tests
+    Category C (15 problems): Extended families, mixed tests
          ██████████████████████████████████  All correct
     
-    Category D (6 problems): Extended families, paired tests
+    Category D (15 problems): Extended families, paired tests
+         ██████████████████████████████████  All correct
+    
+    Category E (15 problems): All evidence types, both regions
          ██████████████████████████████████  All correct
 
                     Figure 2: Results across problem categories
@@ -162,7 +165,7 @@ Our current system has several limitations. All founders are assumed to come fro
 
 We have explored how to infer blood type probabilities in family trees with incomplete information. A key challenge was to find a suitable model structure. It turns out that causal modeling where edges point from genotype to phenotype is much cleaner than diagnostic modeling.
 
-Our approach successfully handles three evidence types including standard tests, mixed sample tests, and paired tests with label swaps. The system produces correct probability distributions across all 29 test cases.
+Our approach successfully handles three evidence types including standard tests, mixed sample tests, and paired tests with label swaps. The system produces correct probability distributions across all 80 test cases.
 
 A broader lesson from this work is that when building probabilistic models for diagnostic inference, one should structure the model causally and let the inference algorithm handle computing probabilities in the reverse direction.
 
