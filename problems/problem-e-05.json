@@ -1,0 +1,92 @@
+{
+    "family-tree": [
+        {
+            "relation": "mother-of",
+            "subject": "Samantha",
+            "object": "Sasha"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Samantha",
+            "object": "Maria"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Samantha",
+            "object": "Linda"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Maria",
+            "object": "Ava"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Linda",
+            "object": "Brian"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Samantha",
+            "object": "Mehmet"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Ava",
+            "object": "Ahmed"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Mehmet",
+            "object": "Amanda"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Linda",
+            "result-1": "A",
+            "person-2": "Samantha",
+            "result-2": "AB"
+        },
+        {
+            "type": "mixed-bloodtype-test",
+            "person-1": "Ava",
+            "person-2": "Brian",
+            "result": "AB"
+        },
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Linda",
+            "result-1": "A",
+            "person-2": "Samantha",
+            "result-2": "AB"
+        },
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Sasha",
+            "result-1": "A",
+            "person-2": "Ahmed",
+            "result-2": "AB"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Amanda"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Sasha"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Samantha"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Linda"
+        }
+    ]
+}

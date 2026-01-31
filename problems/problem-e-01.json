@@ -1,0 +1,61 @@
+{
+    "family-tree": [
+        {
+            "relation": "mother-of",
+            "subject": "Samantha",
+            "object": "Leslie"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Brian",
+            "object": "Calvin"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Calvin",
+            "object": "Sam"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Calvin",
+            "object": "Lindsay"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Samantha",
+            "object": "Agnieszka"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Sam",
+            "object": "Youssef"
+        }
+    ],
+    "country": "South Wumponia",
+    "test-results": [
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Calvin",
+            "result-1": "B",
+            "person-2": "Samantha",
+            "result-2": "B"
+        },
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Lindsay",
+            "result-1": "B",
+            "person-2": "Calvin",
+            "result-2": "B"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Samantha"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Agnieszka"
+        }
+    ]
+}

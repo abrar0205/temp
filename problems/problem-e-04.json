@@ -1,0 +1,57 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Rory",
+            "object": "Lindsay"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Prisha",
+            "object": "Mehmet"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Rory",
+            "object": "Zeinab"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Zeinab",
+            "object": "Amanda"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Zeinab",
+            "object": "Prisha"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Lindsay",
+            "object": "Nora"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Amanda",
+            "result": "A"
+        },
+        {
+            "type": "bloodtype-test",
+            "person": "Rory",
+            "result": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Prisha"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Zeinab"
+        }
+    ]
+}

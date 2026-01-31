@@ -1,0 +1,61 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Kim",
+            "object": "Sam"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Kim",
+            "object": "Omar"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Kim",
+            "object": "Leslie"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Sam",
+            "object": "Muhammed"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Sam",
+            "object": "Ahmed"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Sam",
+            "object": "Ayansh"
+        }
+    ],
+    "country": "South Wumponia",
+    "test-results": [
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Sam",
+            "result-1": "B",
+            "person-2": "Ahmed",
+            "result-2": "B"
+        },
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Ahmed",
+            "result-1": "B",
+            "person-2": "Omar",
+            "result-2": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Ahmed"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Omar"
+        }
+    ]
+}
