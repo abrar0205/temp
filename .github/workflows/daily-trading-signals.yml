@@ -1,0 +1,146 @@
+name: Daily Trading Signal Generator & Validator
+
+on:
+  # Run daily at 9:00 AM IST (3:30 AM UTC) before Indian market opens
+  schedule:
+    - cron: '30 3 * * 1-5'  # Monday to Friday at 3:30 UTC
+  
+  # Also run at 3:30 PM IST (10:00 AM UTC) after Indian market closes
+  #- cron: '0 10 * * 1-5'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Mode to run'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - generate-only
+          - validate-only
+          - report-only
+
+jobs:
+  trading-signals:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          # Note: For real data, install yfinance
+          # pip install yfinance pandas numpy
+      
+      - name: Generate trading signals
+        if: ${{ github.event.inputs.mode != 'validate-only' && github.event.inputs.mode != 'report-only' }}
+        working-directory: trading-indicator/python
+        run: |
+          echo "=== Generating Trading Signals ==="
+          echo "Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          
+          # Generate prediction for NIFTY50
+          python prediction_validator.py --mode generate --symbol NIFTY50 --storage ../../predictions/nifty50.json
+          
+          # Generate prediction for Bank NIFTY
+          python prediction_validator.py --mode generate --symbol BANKNIFTY --storage ../../predictions/banknifty.json
+      
+      - name: Validate previous predictions
+        if: ${{ github.event.inputs.mode != 'generate-only' && github.event.inputs.mode != 'report-only' }}
+        working-directory: trading-indicator/python
+        run: |
+          echo "=== Validating Previous Predictions ==="
+          
+          # Validate NIFTY50 predictions
+          if [ -f "../../predictions/nifty50.json" ]; then
+            python prediction_validator.py --mode validate --symbol NIFTY50 --storage ../../predictions/nifty50.json
+          fi
+          
+          # Validate Bank NIFTY predictions
+          if [ -f "../../predictions/banknifty.json" ]; then
+            python prediction_validator.py --mode validate --symbol BANKNIFTY --storage ../../predictions/banknifty.json
+          fi
+      
+      - name: Generate performance report
+        working-directory: trading-indicator/python
+        run: |
+          echo "=== Generating Performance Report ==="
+          
+          # Create reports directory
+          mkdir -p ../../predictions/reports
+          
+          # Generate reports
+          if [ -f "../../predictions/nifty50.json" ]; then
+            python prediction_validator.py --mode report --symbol NIFTY50 --storage ../../predictions/nifty50.json --output ../../predictions/reports/nifty50_report.md
+          fi
+          
+          if [ -f "../../predictions/banknifty.json" ]; then
+            python prediction_validator.py --mode report --symbol BANKNIFTY --storage ../../predictions/banknifty.json --output ../../predictions/reports/banknifty_report.md
+          fi
+          
+          # Create summary
+          echo "# Daily Trading Signals Summary" > ../../predictions/reports/daily_summary.md
+          echo "" >> ../../predictions/reports/daily_summary.md
+          echo "Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> ../../predictions/reports/daily_summary.md
+          echo "" >> ../../predictions/reports/daily_summary.md
+          
+          if [ -f "../../predictions/reports/nifty50_report.md" ]; then
+            echo "## NIFTY 50" >> ../../predictions/reports/daily_summary.md
+            cat ../../predictions/reports/nifty50_report.md >> ../../predictions/reports/daily_summary.md
+          fi
+          
+          if [ -f "../../predictions/reports/banknifty_report.md" ]; then
+            echo "## Bank NIFTY" >> ../../predictions/reports/daily_summary.md
+            cat ../../predictions/reports/banknifty_report.md >> ../../predictions/reports/daily_summary.md
+          fi
+      
+      - name: Run backtest validation
+        if: ${{ github.event.inputs.mode == 'full' || github.event.inputs.mode == '' }}
+        working-directory: trading-indicator/python
+        run: |
+          echo "=== Running Backtest with Monte Carlo ==="
+          python improved_strategy.py --symbol NIFTY50 --start 2023-01-01 --end 2025-12-31 --monte-carlo --walk-forward --output ../../predictions/latest_backtest.json
+      
+      - name: Commit and push results
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Create predictions directory if not exists
+          mkdir -p predictions/reports
+          
+          # Add prediction files
+          git add predictions/ || true
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "📊 Daily trading signals - $(date -u '+%Y-%m-%d')"
+            git push
+          fi
+      
+      - name: Create summary
+        run: |
+          echo "## 📊 Trading Signal Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "predictions/reports/daily_summary.md" ]; then
+            cat predictions/reports/daily_summary.md >> $GITHUB_STEP_SUMMARY
+          fi
