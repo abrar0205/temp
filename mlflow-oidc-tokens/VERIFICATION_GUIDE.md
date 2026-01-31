@@ -10,8 +10,9 @@ This document provides **complete step-by-step verification** for all Definition
 |---|----------|---------------------|
 | 1 | MLflow OIDC container running locally with PostgreSQL in docker | [Section 1](#1-verify-mlflow-oidc-container-with-postgresql) |
 | 2 | Users can create access tokens via UI/CLI | [Section 2](#2-verify-token-creation) |
-| 3 | Users can access experiment results using tokens (PRIMARY) | [Section 3](#3-verify-token-based-experiment-access-primary-goal) |
-| 4 | How to list and delete tokens | [Section 4](#4-verify-token-listing-and-deletion) |
+| 3 | Users can access experiment results using tokens **(PRIMARY)** | [Section 3](#3-verify-token-based-experiment-access-primary-goal) |
+
+> **Note**: Section 4 covers optional token management (listing/deleting) which is handled via Keycloak Admin Console.
 
 ---
 
@@ -147,16 +148,30 @@ echo "Token: ${TOKEN:0:50}..."
 
 **Expected**: Token string starting with "eyJ..."
 
-### Step 2.3: Create token via UI (alternative method)
-1. Open browser: http://localhost:5000
-2. You'll be redirected to Keycloak login
-3. Enter: `mlflow_user` / `password123`
-4. Login succeeds = token created (managed by browser)
+### Step 2.3: Create token via UI
+
+**Where**: MLflow UI at http://localhost:5000
+
+**Steps**:
+1. Open browser: **http://localhost:5000**
+2. You'll be automatically redirected to Keycloak login page
+3. Enter credentials:
+   - Username: `mlflow_user`
+   - Password: `password123`
+4. Click **Sign In**
+5. You're now logged in - token is automatically created and managed by the browser session
+
+**What happens behind the scenes**:
+- Browser receives OAuth token from Keycloak
+- Token is stored in browser cookies/session
+- All subsequent requests to MLflow include the token automatically
 
 ### ✅ DoD #2 VERIFIED if:
-- [ ] CLI curl command returns JSON with `access_token`
-- [ ] Token starts with "eyJ" (JWT format)
-- [ ] UI login redirects to Keycloak and authenticates
+- [ ] **CLI**: curl command returns JSON with `access_token` field
+- [ ] **CLI**: Token starts with "eyJ" (JWT format)
+- [ ] **UI**: Visiting http://localhost:5000 redirects to Keycloak
+- [ ] **UI**: Login with mlflow_user/password123 succeeds
+- [ ] **UI**: After login, MLflow UI is accessible
 
 ---
 
