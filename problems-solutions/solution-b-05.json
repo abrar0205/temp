@@ -1,0 +1,22 @@
+[
+  {
+    "type": "bloodtype",
+    "person": "Lindsay",
+    "distribution": {
+      "O": 0.0625,
+      "A": 0.546875,
+      "B": 0.15625,
+      "AB": 0.234375
+    }
+  },
+  {
+    "type": "bloodtype",
+    "person": "Muhammed",
+    "distribution": {
+      "O": 0.0625,
+      "A": 0.546875,
+      "B": 0.15625,
+      "AB": 0.234375
+    }
+  }
+]
