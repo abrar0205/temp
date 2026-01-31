@@ -1,10 +1,13 @@
 #!/bin/bash
 # setup.sh - MLflow OIDC Docker Environment Setup Script
+# Supports MLflow v3.8.1 with OIDC v5.7.0 (build 20251227)
+# Using GitHub Container Registry (ghcr.io) with Keycloak for enterprise
 
 set -e
 
 echo "=========================================="
 echo "MLflow OIDC Docker Environment Setup"
+echo "Version: MLflow v3.8.1 + OIDC v5.7.0"
 echo "=========================================="
 
 # Color codes for output
@@ -38,9 +41,6 @@ if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/
     exit 1
 fi
 
-# Build and start containers
-print_status "Building and starting containers..."
-
 # Use docker compose (v2) or docker-compose (v1)
 if docker compose version &> /dev/null; then
     COMPOSE_CMD="docker compose"
@@ -48,7 +48,21 @@ else
     COMPOSE_CMD="docker-compose"
 fi
 
-$COMPOSE_CMD up -d --build
+# Parse command line arguments
+DEPLOY_MODE="oidc"
+if [ "$1" == "--basic-auth" ]; then
+    DEPLOY_MODE="basic"
+    print_status "Deploying with Basic Auth only (no Keycloak)"
+fi
+
+# Build and start containers
+print_status "Building and starting containers..."
+
+if [ "$DEPLOY_MODE" == "basic" ]; then
+    $COMPOSE_CMD --profile basic-auth up -d --build postgres mlflow
+else
+    $COMPOSE_CMD up -d --build postgres keycloak mlflow-oidc
+fi
 
 # Wait for services to be ready
 print_status "Waiting for services to start..."
@@ -70,32 +84,42 @@ if [ $timeout -le 0 ]; then
     exit 1
 fi
 
-# Wait for Keycloak
-print_status "Waiting for Keycloak (this may take a minute)..."
-timeout=120
-while [ $timeout -gt 0 ]; do
-    if curl -s http://localhost:8080/health/ready > /dev/null 2>&1; then
-        print_status "Keycloak is ready!"
-        break
-    fi
-    sleep 5
-    timeout=$((timeout - 5))
-done
+# Wait for Keycloak (only in OIDC mode)
+if [ "$DEPLOY_MODE" == "oidc" ]; then
+    print_status "Waiting for Keycloak (this may take 2-3 minutes)..."
+    timeout=180
+    while [ $timeout -gt 0 ]; do
+        if curl -sf http://localhost:8080/health/ready > /dev/null 2>&1; then
+            print_status "Keycloak is ready!"
+            break
+        fi
+        sleep 5
+        timeout=$((timeout - 5))
+    done
 
-if [ $timeout -le 0 ]; then
-    print_warning "Keycloak health check timed out, but may still be starting..."
+    if [ $timeout -le 0 ]; then
+        print_warning "Keycloak health check timed out, but may still be starting..."
+        print_warning "Check status with: docker compose logs keycloak"
+    fi
 fi
 
 # Wait for MLflow
-print_status "Waiting for MLflow..."
-timeout=60
+print_status "Waiting for MLflow OIDC Server..."
+MLFLOW_CONTAINER="mlflow-oidc-server"
+MLFLOW_PORT="5000"
+if [ "$DEPLOY_MODE" == "basic" ]; then
+    MLFLOW_CONTAINER="mlflow-server"
+    MLFLOW_PORT="5001"
+fi
+
+timeout=90
 while [ $timeout -gt 0 ]; do
-    if curl -s http://localhost:5000/health > /dev/null 2>&1 || curl -s http://localhost:5000/ > /dev/null 2>&1; then
+    if curl -sf http://localhost:$MLFLOW_PORT/health > /dev/null 2>&1 || curl -sf http://localhost:$MLFLOW_PORT/ > /dev/null 2>&1; then
         print_status "MLflow is ready!"
         break
     fi
-    sleep 2
-    timeout=$((timeout - 2))
+    sleep 3
+    timeout=$((timeout - 3))
 done
 
 echo ""
@@ -103,17 +127,26 @@ echo "=========================================="
 echo "Setup Complete!"
 echo "=========================================="
 echo ""
+echo "Deployment Mode: $DEPLOY_MODE"
+echo ""
 echo "Services:"
-echo "  - MLflow UI:     http://localhost:5000"
+echo "  - MLflow UI:     http://localhost:$MLFLOW_PORT"
+if [ "$DEPLOY_MODE" == "oidc" ]; then
 echo "  - Keycloak:      http://localhost:8080"
+fi
 echo "  - PostgreSQL:    localhost:5432"
 echo ""
 echo "Default Credentials:"
 echo "  MLflow Admin:    admin / admin_password"
+if [ "$DEPLOY_MODE" == "oidc" ]; then
 echo "  Keycloak Admin:  admin / admin"
 echo "  Test User:       mlflow-user / mlflow-password"
+fi
 echo ""
-echo "To view logs:      $COMPOSE_CMD logs -f"
-echo "To stop:           $COMPOSE_CMD down"
-echo "To stop + cleanup: $COMPOSE_CMD down -v"
+echo "GitHub Container: ghcr.io/mlflow/mlflow:v2.10.0"
+echo ""
+echo "Commands:"
+echo "  View logs:       $COMPOSE_CMD logs -f"
+echo "  Stop:            $COMPOSE_CMD down"
+echo "  Stop + cleanup:  $COMPOSE_CMD down -v"
 echo ""

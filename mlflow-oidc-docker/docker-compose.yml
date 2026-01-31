@@ -1,3 +1,7 @@
+# MLflow OIDC Docker Deployment
+# Using MLflow v3.8.1 with OIDC v5.7.0 (build 20251227)
+# GitHub Container: ghcr.io/mlflow/mlflow-oidc
+
 services:
   # PostgreSQL Database for MLflow tracking
   postgres:
@@ -19,21 +23,76 @@ services:
     networks:
       - mlflow-network
 
-  # MLflow Tracking Server with Basic Authentication (token-based access)
+  # Keycloak OIDC Provider for Enterprise Authentication
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: mlflow-keycloak
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+      KC_HEALTH_ENABLED: "true"
+    command: start-dev --import-realm
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 120s
+    networks:
+      - mlflow-network
+
+  # MLflow OIDC Server - with PostgreSQL support
+  # Version: MLflow v3.8.1 with OIDC v5.7.0 (build 20251227)
+  mlflow-oidc:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: mlflow-oidc-server
+    environment:
+      # Database Configuration
+      MLFLOW_BACKEND_STORE_URI: "postgresql://mlflow:mlflow_password@postgres:5432/mlflow_db"
+      MLFLOW_ARTIFACTS_DESTINATION: /mlflow/artifacts
+      # OIDC Configuration for Keycloak
+      MLFLOW_AUTH_CONFIG_PATH: /app/auth_config.ini
+      # OIDC Provider Settings (Keycloak)
+      OIDC_PROVIDER_URL: http://keycloak:8080/realms/mlflow
+      OIDC_CLIENT_ID: mlflow-client
+      OIDC_CLIENT_SECRET: mlflow-secret
+      OIDC_REDIRECT_URI: http://localhost:5000/callback
+      OIDC_SCOPE: "openid profile email"
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+      - ./mlflow_config/auth_config.ini:/app/auth_config.ini:ro
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mlflow-network
+
+  # Alternative: MLflow with Basic Auth (simpler setup)
   mlflow:
     build:
       context: .
       dockerfile: Dockerfile.mlflow
     container_name: mlflow-server
+    profiles:
+      - basic-auth
     environment:
-      MLFLOW_BACKEND_STORE_URI: postgresql://mlflow:mlflow_password@postgres:5432/mlflow_db
+      MLFLOW_BACKEND_STORE_URI: "postgresql://mlflow:mlflow_password@postgres:5432/mlflow_db"
       MLFLOW_ARTIFACTS_DESTINATION: /mlflow/artifacts
       MLFLOW_AUTH_CONFIG_PATH: /app/auth_config.ini
     volumes:
       - mlflow_artifacts:/mlflow/artifacts
       - ./mlflow_config/auth_config.ini:/app/auth_config.ini:ro
     ports:
-      - "5000:5000"
+      - "5001:5000"
     depends_on:
       postgres:
         condition: service_healthy

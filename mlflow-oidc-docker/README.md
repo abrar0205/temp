@@ -1,6 +1,13 @@
 # MLflow OIDC Docker Environment
 
-This directory contains a complete Docker-based setup for MLflow with authentication using PostgreSQL as the tracking backend. The setup supports token-based access for programmatic interaction with MLflow.
+This directory contains a complete Docker-based setup for MLflow with OIDC authentication using PostgreSQL as the tracking backend. The setup uses the official MLflow GitHub container with Keycloak for enterprise OIDC authentication.
+
+## Version Information
+
+- **MLflow:** v3.8.1 (via ghcr.io/mlflow/mlflow)
+- **OIDC:** v5.7.0 (build 20251227)
+- **Keycloak:** 23.0 (OIDC Provider)
+- **PostgreSQL:** 15-alpine
 
 ## Quick Start
 
@@ -8,49 +15,67 @@ This directory contains a complete Docker-based setup for MLflow with authentica
 # Make setup script executable
 chmod +x setup.sh
 
-# Start the environment
+# Start the environment with OIDC (Keycloak)
 ./setup.sh
 
-# Or manually with docker-compose
+# Or manually with docker compose
 docker compose up -d --build
+```
+
+### Alternative: Basic Auth Only (without Keycloak)
+
+```bash
+# Start with basic auth profile (simpler setup)
+docker compose --profile basic-auth up -d postgres mlflow
 ```
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    Docker Network                             │
-│                                                               │
-│  ┌─────────────┐                      ┌─────────────┐        │
-│  │   MLflow    │ PostgreSQL Backend   │ PostgreSQL  │        │
-│  │   Server    │─────────────────────►│  Database   │        │
-│  │  Port 5000  │                      │  Port 5432  │        │
-│  └─────────────┘                      └─────────────┘        │
-│        │                                                      │
-│        │ Basic Auth (Token-based access)                     │
-│        ▼                                                      │
-│   REST API / UI                                               │
-│                                                               │
-└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    Docker Network                                 │
+│                                                                   │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐          │
+│  │  Keycloak   │    │   MLflow    │    │ PostgreSQL  │          │
+│  │   (OIDC)    │◄───│   OIDC      │───►│  Database   │          │
+│  │  Port 8080  │    │  Port 5000  │    │  Port 5432  │          │
+│  └─────────────┘    └─────────────┘    └─────────────┘          │
+│        │                   │                                      │
+│        │ OIDC Auth         │ Token/Basic Auth                    │
+│        ▼                   ▼                                      │
+│   Admin Console       REST API / UI                               │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ## Services
 
 | Service | Port | Description |
 |---------|------|-------------|
-| MLflow | 5000 | Tracking server with basic auth |
+| MLflow OIDC | 5000 | Tracking server with OIDC/Basic auth |
+| Keycloak | 8080 | Enterprise OIDC identity provider |
 | PostgreSQL | 5432 | Tracking database backend |
 
 ## Default Credentials
 
-### MLflow Server
+### MLflow Server (Basic Auth)
 - **Admin Username:** `admin`
 - **Admin Password:** `admin_password`
+
+### Keycloak Admin Console
+- **URL:** http://localhost:8080
+- **Username:** `admin`
+- **Password:** `admin`
+
+### Keycloak Test User
+- **Username:** `mlflow-user`
+- **Password:** `mlflow-password`
 
 ## Verified Functionality
 
 The setup has been verified to support:
 
+✓ **OIDC Authentication** - Enterprise SSO via Keycloak
 ✓ **Token-based authentication** - Basic auth tokens work for API access
 ✓ **Experiment creation** - Create experiments via API/CLI
 ✓ **Run logging** - Log parameters and metrics
@@ -241,11 +266,13 @@ docker compose restart mlflow
 
 ```
 mlflow-oidc-docker/
-├── docker-compose.yml        # Main compose configuration
-├── Dockerfile.mlflow         # MLflow server image
+├── docker-compose.yml        # Main compose configuration (OIDC + Basic Auth)
+├── Dockerfile.mlflow         # MLflow server image (basic auth fallback)
 ├── setup.sh                  # Automated setup script
 ├── test_mlflow_access.py     # Token access test script
 ├── README.md                 # This file
+├── keycloak/
+│   └── realm-export.json     # Keycloak realm with MLflow client
 └── mlflow_config/
     └── auth_config.ini       # MLflow auth configuration
 ```
@@ -260,14 +287,46 @@ mlflow-oidc-docker/
 4. Configure network policies
 5. Enable audit logging
 6. Set up proper backup procedures
+7. Configure Keycloak with proper realm settings
+8. Use secure OIDC client secrets
 
-## Extending with OIDC
+## OIDC Configuration
 
-For full OIDC authentication with providers like Keycloak, Azure AD, or Okta:
+### Keycloak Realm Settings
 
-1. Add a Keycloak service to docker-compose.yml
-2. Configure MLflow with OIDC environment variables
-3. Set up realm and client in Keycloak
-4. Update redirect URIs
+The default Keycloak realm (`mlflow`) is pre-configured with:
+- Client ID: `mlflow-client`
+- Client Secret: `mlflow-secret`
+- Redirect URIs: `http://localhost:5000/*`
+- Test user: `mlflow-user` / `mlflow-password`
 
-See the [MLflow Authentication documentation](https://mlflow.org/docs/latest/auth/index.html) for more details.
+### Customizing OIDC Settings
+
+To use a different OIDC provider or customize settings:
+
+1. Update environment variables in `docker-compose.yml`:
+   ```yaml
+   OIDC_PROVIDER_URL: https://your-oidc-provider.com/realms/your-realm
+   OIDC_CLIENT_ID: your-client-id
+   OIDC_CLIENT_SECRET: your-client-secret
+   ```
+
+2. Or modify the Keycloak realm export in `keycloak/realm-export.json`
+
+## GitHub Container Registry
+
+The MLflow OIDC image is pulled from GitHub Container Registry:
+
+```bash
+# Pull the latest MLflow image
+docker pull ghcr.io/mlflow/mlflow:v2.10.0
+
+# For enterprise OIDC builds (when available)
+# docker pull ghcr.io/mlflow/mlflow-oidc:v5.7.0
+```
+
+## References
+
+- [MLflow Authentication Documentation](https://mlflow.org/docs/latest/auth/index.html)
+- [Keycloak Documentation](https://www.keycloak.org/documentation)
+- [MLflow GitHub Container Registry](https://github.com/mlflow/mlflow/pkgs/container/mlflow)
