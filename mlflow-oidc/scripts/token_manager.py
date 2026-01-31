@@ -12,7 +12,7 @@ This script demonstrates workarounds using direct database access.
 
 Prerequisites:
 - MLflow server running with basic-auth enabled
-- pip install mlflow requests sqlite3
+- pip install mlflow requests
 """
 
 import os
