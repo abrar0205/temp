@@ -1,0 +1,46 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Daniel",
+            "object": "Dana"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Daniel",
+            "object": "Muhammed"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Daniel",
+            "object": "Omar"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Omar",
+            "result-1": "AB",
+            "person-2": "Daniel",
+            "result-2": "A"
+        },
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Muhammed",
+            "result-1": "AB",
+            "person-2": "Omar",
+            "result-2": "AB"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Dana"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Omar"
+        }
+    ]
+}

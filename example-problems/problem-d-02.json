@@ -1,0 +1,39 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Rory",
+            "object": "Sasha"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Rory",
+            "object": "Ayansh"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Sasha",
+            "object": "Lyn"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Ayansh",
+            "result-1": "A",
+            "person-2": "Rory",
+            "result-2": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Rory"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Lyn"
+        }
+    ]
+}

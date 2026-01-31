@@ -1,0 +1,33 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Omar",
+            "object": "Amanda"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Omar",
+            "object": "Amanda"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Prisha",
+            "object": "Sam"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Omar",
+            "result": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Prisha"
+        }
+    ]
+}

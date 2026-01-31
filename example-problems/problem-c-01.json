@@ -1,0 +1,48 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Jordan",
+            "object": "Sasha"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Jordan",
+            "object": "Kim"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Sasha",
+            "object": "Omar"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Jordan",
+            "object": "Mehmet"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Jordan",
+            "object": "Sasha"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Jordan",
+            "result": "A"
+        },
+        {
+            "type": "bloodtype-test",
+            "person": "Kim",
+            "result": "B"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Sasha"
+        }
+    ]
+}

@@ -1,0 +1,47 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Sasha",
+            "object": "Yufei"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Sasha",
+            "object": "Yufei"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Yufei",
+            "object": "Dana"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Dana",
+            "object": "Noel"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Sasha",
+            "object": "Yufei"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Dana",
+            "result": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Yufei"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Noel"
+        }
+    ]
+}
