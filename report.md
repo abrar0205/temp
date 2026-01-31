@@ -24,13 +24,13 @@ Agents often need to reason about uncertain information. In medical genetics, a 
 
 Each person inherits two alleles of the ABO gene, one from each parent. There are three possible alleles, namely A, B, and O. The alleles combine to produce four observable blood types according to dominance rules where A and B are codominant while O is recessive.
 
-The genotype to phenotype mapping works as follows. A person with genotype AA or AO has blood type A. A person with genotype BB or BO has blood type B. A person with genotype AB has blood type AB. Only a person with genotype OO has blood type O.
+Genotype determines blood type as follows. A person with genotype AA or AO has blood type A. A person with genotype BB or BO has blood type B. A person with genotype AB has blood type AB. Only a person with genotype OO has blood type O.
 
 This mapping creates an inference challenge because observing blood type A tells us the genotype is AA or AO, but does not distinguish between them.
 
 ### 2.2 Population Genetics in Wumponia
 
-The scenario involves families in Wumponia, a fictional country with two regions having different allele frequencies. In North Wumponia, the allele frequencies are P(A) = 0.50, P(B) = 0.25, and P(O) = 0.25. In South Wumponia, the frequencies are quite different with P(A) = 0.15, P(B) = 0.55, and P(O) = 0.30.
+Our scenario involves families in Wumponia, a fictional country with two regions having different allele frequencies. In North Wumponia, the allele frequencies are P(A) = 0.50, P(B) = 0.25, and P(O) = 0.25. In South Wumponia, the frequencies are quite different with P(A) = 0.15, P(B) = 0.55, and P(O) = 0.30.
 
 These frequencies serve as prior probabilities for **founder individuals**, which are those without known parents in the family tree. For individuals whose parents are known, their allele probabilities are determined by inheritance rather than population priors.
 
@@ -38,17 +38,17 @@ These frequencies serve as prior probabilities for **founder individuals**, whic
 
 Three types of laboratory tests provide evidence in our problem.
 
-The first type is the **standard blood type test** which directly observes a person's blood type. We assume this test is always correct.
+One type is the **standard blood type test** which directly observes a person's blood type. We assume this test is always correct.
 
-The second type is the **mixed blood test** where blood from two people is combined. The result shows which antigens are present in the mixture. For example, if one person has type A and the other has type B, the mixture would show type AB since both antigens are present.
+Another type is the **mixed blood test** where blood from two people is combined. The result shows which antigens are present in the mixture. For example, if one person has type A and the other has type B, the mixture would show type AB since both antigens are present.
 
-The third type is the **paired blood test** where two people are tested together but the laboratory might accidentally swap the labels with 20% probability. This means the result attributed to person 1 could actually be person 2's blood type and vice versa.
+The last type is the **paired blood test** where two people are tested together but the laboratory might accidentally swap the labels with 20% probability. So the result attributed to person 1 could actually be person 2's blood type and vice versa.
 
 ## 3 Model Architecture
 
 ### 3.1 Network Structure
 
-The central design decision we made was to model **causal** relationships rather than diagnostic ones. Although we want to infer blood types from test results, we structure the network with edges pointing from causes to effects.
+Our central design decision was to model **causal** relationships rather than diagnostic ones. Although we want to infer blood types from test results, we structure the network with edges pointing from causes to effects.
 
 Each person is represented by three random variables in the network. The first two are Allele1 and Allele2, representing the two inherited alleles with possible values A, B, or O. The third is BloodType representing the observable phenotype with possible values A, B, AB, or O.
 
@@ -86,7 +86,7 @@ We introduce intermediate **contribution nodes** to represent the allele each pa
 
 Without contribution nodes, the child's allele would depend directly on both parent alleles, requiring a table with 9 columns for the 3x3 combinations of parent alleles. With contribution nodes, we have two smaller tables instead.
 
-The contribution node encodes Mendelian inheritance simply. If a parent has two identical alleles like AA, they contribute that allele with probability 1.0. If a parent has two different alleles like AO, they contribute each with probability 0.5.
+Contribution nodes encode Mendelian inheritance simply. If a parent has two identical alleles like AA, they contribute that allele with probability 1.0. If a parent has two different alleles like AO, they contribute each with probability 0.5.
 
 ### 3.4 Modeling the Three Evidence Types
 
@@ -118,7 +118,7 @@ Working through all the inheritance combinations, our system computes Lyn's dist
 
 ### 4.3 Comparison of Problem Difficulty
 
-Figure 2 shows how the problem categories compare in terms of complexity. The Category A problems are the simplest since they involve only three people and direct blood type tests. Categories B through D introduce additional challenges with larger families and more complex evidence types.
+Figure 2 shows how the problem categories differ. The Category A problems are the simplest since they involve only three people and direct blood type tests. Categories B through D introduce additional challenges with larger families and more complex evidence types.
 
 ```
     Category A (11 problems): Simple families, standard tests only
@@ -142,13 +142,13 @@ Since all categories achieved perfect accuracy, we are confident that our causal
 
 ### 5.1 Key Insights
 
-The most significant insight from this work is that causal modeling produces cleaner specifications than diagnostic modeling, even when the inference goal is to determine causes from effects. This principle applies broadly to probabilistic modeling.
+What we learned from this work is that causal modeling produces cleaner specifications than diagnostic modeling, even when the inference goal is to determine causes from effects. Causal structure works well for many types of probabilistic modeling.
 
 Another important finding is that intermediate nodes like our contribution nodes can greatly simplify probability tables. These nodes also correspond to meaningful biological concepts, namely the actual allele transmitted during reproduction, which makes the model easier to understand and debug.
 
 ### 5.2 Design Decisions We Made
 
-We chose to use the pgmpy library for Bayesian network construction and inference. This allowed us to focus on the modeling aspects rather than implementing inference algorithms from scratch. Variable elimination in pgmpy provided exact inference which was important for validating correctness.
+We chose to use the pgmpy library for Bayesian network construction and inference. This allowed us to focus on the modeling aspects rather than writing inference algorithms from scratch. Variable elimination in pgmpy provided exact inference which was important for validating correctness.
 
 We represented each problem in JSON format which was simple to parse. The family tree was represented as a list of parent child relationships, and we used topological sorting to ensure parents were processed before children when building the network.
 
@@ -156,7 +156,7 @@ For paired tests, our initial attempt modeled the two results as separate nodes 
 
 ### 5.3 Limitations
 
-The current implementation has several limitations. All founders are assumed to come from the same region of Wumponia. The system only handles ABO blood types while real blood typing includes Rh factor and other antigens. Standard tests are assumed perfect while only paired tests model measurement error. The system cannot represent de novo mutations where a child has an allele neither parent carries.
+Our current system has several limitations. All founders are assumed to come from the same region of Wumponia. We only handle ABO blood types while real blood typing includes Rh factor and other antigens. Standard tests are assumed perfect while only paired tests model measurement error. The system cannot represent de novo mutations where a child has an allele neither parent carries.
 
 ## 6 Conclusion
 
@@ -164,7 +164,7 @@ In this report we have explored how to infer blood type probabilities in family 
 
 Our approach successfully handles three evidence types including standard tests, mixed sample tests, and paired tests with label swaps. The system produces correct probability distributions across all 29 test cases.
 
-The broader lesson from this work is that when building probabilistic models for diagnostic inference, one should structure the model causally and let the inference algorithm handle computing probabilities in the reverse direction.
+A broader lesson from this work is that when building probabilistic models for diagnostic inference, one should structure the model causally and let the inference algorithm handle computing probabilities in the reverse direction.
 
 ## References
 
@@ -180,8 +180,8 @@ The broader lesson from this work is that when building probabilistic models for
 
 1. The format of problem files (JSON) is not discussed in detail because the parsing was simple and presented no interesting challenges.
 
-2. Implementation details like function names and class structure are omitted because they are what we call "don't care choices" that do not affect the correctness of the solution.
+2. Code details like function names and class structure are omitted because they are what we call "don't care choices" that do not affect the correctness of the solution.
 
-3. We did not include runtime comparisons because for these problem sizes any reasonable implementation completes quickly. The focus is on correctness rather than efficiency.
+3. We did not include runtime comparisons because for these problem sizes any reasonable code completes quickly. The focus is on correctness rather than efficiency.
 
 4. This report does not have a separate preliminaries section because the necessary background on Bayesian networks is integrated into the model architecture discussion where it is most relevant.
