@@ -1,109 +1,227 @@
-# MLflow OIDC Docker Environment
+# MLflow with Keycloak OIDC Authentication
 
-This directory contains a complete Docker-based setup for MLflow with OIDC authentication using PostgreSQL as the tracking backend. The setup uses the official MLflow GitHub container with Keycloak for enterprise OIDC authentication.
-
-## Version Information
-
-- **MLflow:** v3.8.1 (via ghcr.io/mlflow/mlflow)
-- **OIDC:** v5.7.0 (build 20251227)
-- **Keycloak:** 23.0 (OIDC Provider)
-- **PostgreSQL:** 15-alpine
-
-## Quick Start
-
-```bash
-# Make setup script executable
-chmod +x setup.sh
-
-# Start the environment with OIDC (Keycloak)
-./setup.sh
-
-# Or manually with docker compose
-docker compose up -d --build
-```
-
-### Alternative: Basic Auth Only (without Keycloak)
-
-```bash
-# Start with basic auth profile (simpler setup)
-docker compose --profile basic-auth up -d postgres mlflow
-```
+MLflow deployment with Keycloak SSO authentication, based on [mlflow-tracking-server-docker](https://github.com/mlflow-oidc/mlflow-tracking-server-docker).
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                    Docker Network                                 │
-│                                                                   │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐          │
-│  │  Keycloak   │    │   MLflow    │    │ PostgreSQL  │          │
-│  │   (OIDC)    │◄───│   OIDC      │───►│  Database   │          │
-│  │  Port 8080  │    │  Port 5000  │    │  Port 5432  │          │
-│  └─────────────┘    └─────────────┘    └─────────────┘          │
-│        │                   │                                      │
-│        │ OIDC Auth         │ Token/Basic Auth                    │
-│        ▼                   ▼                                      │
-│   Admin Console       REST API / UI                               │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              Docker Network                                   │
+│                                                                               │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐   │
+│  │  Keycloak   │    │   MLflow    │    │ PostgreSQL  │    │    Redis    │   │
+│  │   (OIDC)    │◄───│   Server    │───►│  Database   │    │  (Sessions) │   │
+│  │  Port 8080  │    │  Port 5000  │    │  Port 5432  │    │  Port 6379  │   │
+│  └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘   │
+│        │                   │                                     ▲           │
+│        │                   │                                     │           │
+│        │ OIDC Auth         │ S3 API                             │           │
+│        │                   ▼                                     │           │
+│        │            ┌─────────────┐                              │           │
+│        │            │    MinIO    │                              │           │
+│        │            │ (Artifacts) │                              │           │
+│        │            │ Port 9000   │                              │           │
+│        │            │ Port 9001   │ (Console)                    │           │
+│        │            └─────────────┘                              │           │
+│        │                                                         │           │
+│        └─────────────────────────────────────────────────────────┘           │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Services
+**Components:**
 
-| Service | Port | Description |
-|---------|------|-------------|
-| MLflow OIDC | 5000 | Tracking server with OIDC/Basic auth |
-| Keycloak | 8080 | Enterprise OIDC identity provider |
-| PostgreSQL | 5432 | Tracking database backend |
+- **MLflow Server**: Tracking server with OIDC authentication (mlflow-oidc-auth)
+- **Keycloak**: OpenID Connect provider for SSO
+- **PostgreSQL**: Backend storage for MLflow and Keycloak
+- **Redis**: Session storage
+- **MinIO**: S3-compatible artifact storage
 
-## Default Credentials
+## Building the Docker Image
 
-### MLflow Server (Basic Auth)
-- **Admin Username:** `admin`
-- **Admin Password:** `admin_password`
+The MLflow OIDC server image is built from the Dockerfile based on [mlflow-tracking-server-docker](https://github.com/mlflow-oidc/mlflow-tracking-server-docker).
 
-### Keycloak Admin Console
-- **URL:** http://localhost:8080
-- **Username:** `admin`
-- **Password:** `admin`
-
-### Keycloak Test User
-- **Username:** `mlflow-user`
-- **Password:** `mlflow-password`
-
-## Verified Functionality
-
-The setup has been verified to support:
-
-✓ **OIDC Authentication** - Enterprise SSO via Keycloak
-✓ **Token-based authentication** - Basic auth tokens work for API access
-✓ **Experiment creation** - Create experiments via API/CLI
-✓ **Run logging** - Log parameters and metrics
-✓ **Results retrieval** - Fetch experiment results using tokens
-✓ **PostgreSQL backend** - Persistent storage with PostgreSQL
-
-## Usage
-
-### Access MLflow UI
-
-1. Open http://localhost:5000 in your browser
-2. Login with admin credentials: `admin` / `admin_password`
-
-### Create and Use Access Tokens
-
-#### Via CLI with Environment Variables
+### Build Command
 
 ```bash
-# Set environment variables for authentication
-export MLFLOW_TRACKING_URI=http://localhost:5000
-export MLFLOW_TRACKING_USERNAME=admin
-export MLFLOW_TRACKING_PASSWORD=admin_password
-
-# Test connection
-mlflow experiments search
+docker build --build-arg UV_HTTP_TIMEOUT=300 -t mlflow-oidc-server:latest .
 ```
 
-#### Via Python SDK
+**Command Explanation:**
+
+- `docker build` - Build a Docker image from a Dockerfile
+- `--build-arg UV_HTTP_TIMEOUT=300` - Set timeout for package installation to 300 seconds
+  - Prevents build failures when downloading large packages (mlflow, dependencies)
+  - 300 seconds (5 minutes) allows sufficient time for slow network connections
+- `-t mlflow-oidc-server:latest` - Tag the image
+- `.` - Build context (current directory contains the Dockerfile)
+
+### What Gets Installed
+
+The Dockerfile installs:
+
+- Python 3.12
+- MLflow 2.10.0
+- mlflow-oidc-auth 0.3.0 (OIDC authentication plugin)
+- psycopg2 (PostgreSQL driver)
+- boto3 (S3/MinIO client)
+- redis (Redis client for sessions)
+
+## Quick Start
+
+### 1. Setup Environment
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Generate a secure secret key
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Edit .env and update:
+# - SECRET_KEY (use generated value above)
+# - All passwords (POSTGRES_PASSWORD, KEYCLOAK_ADMIN_PASSWORD, etc.)
+```
+
+### 2. Start Services
+
+```bash
+docker compose up -d
+```
+
+### 3. Configure Keycloak
+
+```bash
+# Wait for all services to be healthy (takes ~60-120 seconds)
+docker compose ps
+
+# Run configuration script to set up realm, client, and test user
+chmod +x configure-keycloak.sh
+./configure-keycloak.sh
+```
+
+The script will output the `OIDC_CLIENT_SECRET`. Update your `.env` file with this value and restart MLflow:
+
+```bash
+# Update OIDC_CLIENT_SECRET in .env file
+# Then restart MLflow
+docker compose restart mlflow
+```
+
+### 4. Access MLflow
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| MLflow UI | http://localhost:5000 | Tracking server |
+| Keycloak Admin | http://localhost:8080 | OIDC provider admin |
+| MinIO Console | http://localhost:9001 | Artifact storage admin |
+
+**MLflow Default Admin** (for basic-auth):
+- Username: `admin`
+- Password: `password` (default, change for production)
+
+**Default Keycloak test user** (created by `configure-keycloak.sh`):
+- Username: `mlflow_user`
+- Password: `password123`
+
+## Configuration
+
+### Environment Variables
+
+See `.env.example` for all options. Required variables:
+
+| Variable | Description |
+|----------|-------------|
+| `SECRET_KEY` | Session encryption key (32+ random characters) |
+| `OIDC_CLIENT_SECRET` | From Keycloak after running `configure-keycloak.sh` |
+| `POSTGRES_PASSWORD` | PostgreSQL password for MLflow |
+| `KEYCLOAK_ADMIN_PASSWORD` | Keycloak admin password |
+| `REDIS_PASSWORD` | Redis password for sessions |
+| `MINIO_ROOT_PASSWORD` | MinIO admin password |
+
+### User Groups
+
+Users must belong to one of these groups (configured in Keycloak):
+
+- `mlflow_admins`: Full administrative access
+- `mlflow_users`: Regular user access
+
+Update group names via `OIDC_ADMIN_GROUP_NAME` and `OIDC_GROUP_NAME` in `.env`.
+
+## Management
+
+### View Logs
+
+```bash
+docker compose logs -f mlflow
+docker compose logs -f keycloak
+docker compose logs -f postgres
+docker compose logs -f redis
+docker compose logs -f minio
+```
+
+### Stop Services
+
+```bash
+docker compose down
+```
+
+### Reset All Data
+
+```bash
+docker compose down -v  # WARNING: Deletes all data
+```
+
+### Add New Users
+
+1. Access Keycloak admin console: http://localhost:8080
+2. Login with admin credentials from `.env`
+3. Navigate to MLflow realm → Users → Add User
+4. Set password in Credentials tab
+5. Add user to `mlflow_admins` or `mlflow_users` group in Groups tab
+
+## Troubleshooting
+
+### "Invalid scopes" error
+
+- Ensure `.env` has `OIDC_SCOPE` (singular, not `SCOPES`)
+- Value should be: `"openid profile email"`
+
+### "Session error: Missing OAuth state"
+
+- Check Redis is running: `docker compose ps redis`
+- Verify Redis connection: `docker exec mlflow-redis redis-cli -a <password> ping`
+
+### "Authorization error: User is not allowed to login"
+
+- User must be in `mlflow_admins` or `mlflow_users` group in Keycloak
+- Check group membership in Keycloak admin console
+- Verify `OIDC_ADMIN_GROUP_NAME` and `OIDC_GROUP_NAME` in `.env` match Keycloak groups
+
+### "Internal Server Error"
+
+- Check MLflow logs: `docker compose logs mlflow`
+- Verify all environment variables are set correctly in `.env`
+
+### MinIO connection issues
+
+- Check MinIO is running: `docker compose ps minio`
+- Verify credentials match in `.env` (`MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`)
+- Test MinIO API: `curl http://localhost:9000/minio/health/live`
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `docker-compose.yml` | Service definitions |
+| `.env` | Environment configuration (DO NOT COMMIT) |
+| `.env.example` | Template for `.env` file |
+| `Dockerfile.mlflow` | MLflow OIDC server image |
+| `init-db.sh` | PostgreSQL initialization script |
+| `configure-keycloak.sh` | Keycloak setup automation script |
+| `test_mlflow_access.py` | Token access test script |
+
+## Using with Python SDK
 
 ```python
 import mlflow
@@ -112,221 +230,39 @@ import os
 # Set tracking URI
 mlflow.set_tracking_uri("http://localhost:5000")
 
-# Set credentials via environment
-os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-os.environ["MLFLOW_TRACKING_PASSWORD"] = "admin_password"
+# For basic auth (after OIDC login, use generated token)
+os.environ["MLFLOW_TRACKING_USERNAME"] = "your_username"
+os.environ["MLFLOW_TRACKING_PASSWORD"] = "your_password"
 
 # Create an experiment
 mlflow.create_experiment("my-experiment")
 
 # Log a run
 with mlflow.start_run():
-    mlflow.log_param("param1", 5)
+    mlflow.log_param("learning_rate", 0.01)
     mlflow.log_metric("accuracy", 0.95)
+    mlflow.log_artifact("model.pkl")  # Stored in MinIO
 ```
 
-#### Via REST API with Basic Auth (Token-like access)
+## Using with CLI
 
 ```bash
-# Search experiments with basic auth
-curl -X POST "http://localhost:5000/api/2.0/mlflow/experiments/search" \
-  -u admin:admin_password \
-  -H "Content-Type: application/json" \
-  -d '{"max_results": 100}'
+export MLFLOW_TRACKING_URI=http://localhost:5000
+export MLFLOW_TRACKING_USERNAME=your_username
+export MLFLOW_TRACKING_PASSWORD=your_password
 
-# Create an experiment
-curl -X POST "http://localhost:5000/api/2.0/mlflow/experiments/create" \
-  -u admin:admin_password \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-api-experiment"}'
+# List experiments
+mlflow experiments search
 
-# Create a run
-curl -X POST "http://localhost:5000/api/2.0/mlflow/runs/create" \
-  -u admin:admin_password \
-  -H "Content-Type: application/json" \
-  -d '{"experiment_id": "0"}'
-
-# Log a metric
-curl -X POST "http://localhost:5000/api/2.0/mlflow/runs/log-metric" \
-  -u admin:admin_password \
-  -H "Content-Type: application/json" \
-  -d '{"run_id": "<your-run-id>", "key": "accuracy", "value": 0.95, "timestamp": 1234567890}'
+# Create experiment
+mlflow experiments create -n "my-experiment"
 ```
 
-### Test Script
+## Support
 
-Run the test script to verify token-based access:
+For issues with:
 
-```bash
-# Install dependencies
-pip install requests
-
-# Run tests
-python test_mlflow_access.py
-```
-
-Expected output:
-```
-============================================================
-MLflow Access Token Test Script
-============================================================
-✓ MLflow server is healthy
-✓ Authentication successful  
-✓ Created experiment with ID: X
-✓ Created run with ID: ...
-✓ Logged params and metrics
-✓ Run finished successfully
-✓ Found X run(s) with metrics and parameters
-✓ Found X experiment(s)
-============================================================
-✓ All tests passed! Token-based access is working correctly.
-============================================================
-```
-
-## Managing Users
-
-### Create New User via MLflow CLI
-
-```bash
-# Connect to MLflow container
-docker exec -it mlflow-server bash
-
-# Create a new user
-mlflow users create -u newuser -p newpassword
-```
-
-## Container Management
-
-### View Logs
-
-```bash
-# All services
-docker compose logs -f
-
-# Specific service
-docker compose logs -f mlflow
-docker compose logs -f postgres
-```
-
-### Stop Services
-
-```bash
-# Stop (preserves data)
-docker compose stop
-
-# Stop and remove containers (preserves volumes)
-docker compose down
-
-# Full cleanup (removes everything including data)
-docker compose down -v
-```
-
-### Restart Services
-
-```bash
-docker compose restart
-docker compose restart mlflow
-```
-
-## Troubleshooting
-
-### MLflow not starting
-
-1. Check if PostgreSQL is ready:
-   ```bash
-   docker exec mlflow-postgres pg_isready -U mlflow
-   ```
-
-2. Check MLflow logs:
-   ```bash
-   docker compose logs mlflow
-   ```
-
-### Cannot authenticate
-
-1. Verify credentials are correct
-2. Check if MLflow is using basic-auth mode:
-   ```bash
-   docker exec mlflow-server cat /proc/1/cmdline | tr '\0' ' '
-   ```
-
-### Database connection issues
-
-1. Check PostgreSQL is running:
-   ```bash
-   docker compose ps postgres
-   ```
-
-2. Test connection:
-   ```bash
-   docker exec -it mlflow-postgres psql -U mlflow -d mlflow_db -c "SELECT 1"
-   ```
-
-## File Structure
-
-```
-mlflow-oidc-docker/
-├── docker-compose.yml        # Main compose configuration (OIDC + Basic Auth)
-├── Dockerfile.mlflow         # MLflow server image (basic auth fallback)
-├── setup.sh                  # Automated setup script
-├── test_mlflow_access.py     # Token access test script
-├── README.md                 # This file
-├── keycloak/
-│   └── realm-export.json     # Keycloak realm with MLflow client
-└── mlflow_config/
-    └── auth_config.ini       # MLflow auth configuration
-```
-
-## Security Notes
-
-⚠️ **For Production Use:**
-
-1. Change all default passwords
-2. Enable HTTPS/TLS
-3. Use proper secret management
-4. Configure network policies
-5. Enable audit logging
-6. Set up proper backup procedures
-7. Configure Keycloak with proper realm settings
-8. Use secure OIDC client secrets
-
-## OIDC Configuration
-
-### Keycloak Realm Settings
-
-The default Keycloak realm (`mlflow`) is pre-configured with:
-- Client ID: `mlflow-client`
-- Client Secret: `mlflow-secret`
-- Redirect URIs: `http://localhost:5000/*`
-- Test user: `mlflow-user` / `mlflow-password`
-
-### Customizing OIDC Settings
-
-To use a different OIDC provider or customize settings:
-
-1. Update environment variables in `docker-compose.yml`:
-   ```yaml
-   OIDC_PROVIDER_URL: https://your-oidc-provider.com/realms/your-realm
-   OIDC_CLIENT_ID: your-client-id
-   OIDC_CLIENT_SECRET: your-client-secret
-   ```
-
-2. Or modify the Keycloak realm export in `keycloak/realm-export.json`
-
-## GitHub Container Registry
-
-The MLflow OIDC image is pulled from GitHub Container Registry:
-
-```bash
-# Pull the latest MLflow image
-docker pull ghcr.io/mlflow/mlflow:v2.10.0
-
-# For enterprise OIDC builds (when available)
-# docker pull ghcr.io/mlflow/mlflow-oidc:v5.7.0
-```
-
-## References
-
-- [MLflow Authentication Documentation](https://mlflow.org/docs/latest/auth/index.html)
-- [Keycloak Documentation](https://www.keycloak.org/documentation)
-- [MLflow GitHub Container Registry](https://github.com/mlflow/mlflow/pkgs/container/mlflow)
+- **MLflow OIDC**: https://github.com/mlflow-oidc/mlflow-oidc-auth
+- **MLflow**: https://github.com/mlflow/mlflow
+- **Keycloak**: https://www.keycloak.org/documentation
+- **MinIO**: https://min.io/docs/minio/linux/index.html

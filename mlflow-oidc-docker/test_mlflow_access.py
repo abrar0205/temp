@@ -16,7 +16,7 @@ from datetime import datetime
 # Configuration
 MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
 MLFLOW_USERNAME = os.environ.get("MLFLOW_USERNAME", "admin")
-MLFLOW_PASSWORD = os.environ.get("MLFLOW_PASSWORD", "admin_password")
+MLFLOW_PASSWORD = os.environ.get("MLFLOW_PASSWORD", "password")
 
 
 def create_session():

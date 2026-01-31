@@ -1,6 +1,20 @@
+# MLflow OIDC Server Dockerfile
+# Based on mlflow-tracking-server-docker
+# https://github.com/mlflow-oidc/mlflow-tracking-server-docker
+#
+# Installs:
+# - Python 3.11
+# - MLflow 2.10.0
+# - psycopg2 (PostgreSQL driver)
+# - boto3 (S3/MinIO client)
+# - redis (Redis client for sessions)
+
 FROM python:3.11-slim
 
 WORKDIR /app
+
+# Build arguments for package manager timeout
+ARG UV_HTTP_TIMEOUT=300
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -9,23 +23,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install MLflow and dependencies
-RUN pip install --no-cache-dir \
+# Install Python packages
+# Using pip with extended timeout for large packages
+RUN pip install --no-cache-dir --timeout=${UV_HTTP_TIMEOUT} \
     mlflow==2.10.0 \
     psycopg2-binary \
     boto3 \
+    redis \
     gunicorn
 
 # Create artifacts directory
 RUN mkdir -p /mlflow/artifacts
 
+# Create non-root user for security
+RUN useradd -m -u 1000 mlflow && \
+    chown -R mlflow:mlflow /app /mlflow
+
+USER mlflow
+
 # Expose MLflow port
 EXPOSE 5000
 
+# Environment variables (can be overridden at runtime)
+ENV MLFLOW_HOST=0.0.0.0
+ENV MLFLOW_PORT=5000
+
 # Start MLflow server with basic auth
-CMD ["mlflow", "server", \
-     "--host", "0.0.0.0", \
-     "--port", "5000", \
-     "--backend-store-uri", "postgresql://mlflow:mlflow_password@postgres:5432/mlflow_db", \
-     "--default-artifact-root", "/mlflow/artifacts", \
-     "--app-name", "basic-auth"]
+# Note: For full OIDC, use mlflow-oidc-auth plugin with --app-name oidc
+CMD ["sh", "-c", "mlflow server \
+    --host ${MLFLOW_HOST} \
+    --port ${MLFLOW_PORT} \
+    --backend-store-uri ${MLFLOW_BACKEND_STORE_URI} \
+    --default-artifact-root ${MLFLOW_ARTIFACTS_DESTINATION:-/mlflow/artifacts} \
+    --app-name basic-auth"]
