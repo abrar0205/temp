@@ -59,9 +59,10 @@ fi
 print_status "Building and starting containers..."
 
 if [ "$DEPLOY_MODE" == "basic" ]; then
-    $COMPOSE_CMD --profile basic-auth up -d --build postgres mlflow
+    $COMPOSE_CMD --profile basic-auth up -d --build
 else
-    $COMPOSE_CMD up -d --build postgres keycloak mlflow-oidc
+    # Start mlflow-oidc which will automatically start postgres via depends_on
+    $COMPOSE_CMD up -d --build mlflow-oidc
 fi
 
 # Wait for services to be ready
