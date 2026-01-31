@@ -10,7 +10,7 @@ Agents often need to reason about uncertain information. In medical genetics, a 
 
 **Research question** How can we build a probabilistic model that accurately infers blood type distributions given partial family and test information?
 
-**Contribution** There are three key contributions in this report:
+**Contribution** There are three key contributions:
 
 1. A Bayesian network architecture that separates genetic state (alleles) from observable phenotype (blood type)
 2. Methods for incorporating three different evidence types into a unified framework
@@ -160,7 +160,7 @@ Our current system has several limitations. All founders are assumed to come fro
 
 ## 6 Conclusion
 
-In this report we have explored how to infer blood type probabilities in family trees with incomplete information. A key challenge was to find a suitable model structure. It turns out that causal modeling where edges point from genotype to phenotype is much cleaner than diagnostic modeling.
+We have explored how to infer blood type probabilities in family trees with incomplete information. A key challenge was to find a suitable model structure. It turns out that causal modeling where edges point from genotype to phenotype is much cleaner than diagnostic modeling.
 
 Our approach successfully handles three evidence types including standard tests, mixed sample tests, and paired tests with label swaps. The system produces correct probability distributions across all 29 test cases.
 
