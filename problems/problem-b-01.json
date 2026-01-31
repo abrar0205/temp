@@ -1,0 +1,48 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Jordan",
+            "object": "Leslie"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Jordan",
+            "object": "Prisha"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Leslie",
+            "object": "Sam"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Jordan",
+            "object": "Leslie"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Sam",
+            "object": "Noel"
+        }
+    ],
+    "country": "South Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Jordan",
+            "result": "B"
+        },
+        {
+            "type": "bloodtype-test",
+            "person": "Sam",
+            "result": "B"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Noel"
+        }
+    ]
+}

@@ -1,0 +1,49 @@
+{
+    "family-tree": [
+        {
+            "relation": "mother-of",
+            "subject": "Kim",
+            "object": "Lindsay"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Kim",
+            "object": "Lindsay"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Kim",
+            "object": "Leslie"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Lindsay",
+            "object": "Ava"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Lindsay",
+            "result": "A"
+        },
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Leslie",
+            "result-1": "B",
+            "person-2": "Kim",
+            "result-2": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Leslie"
+        },
+        {
+            "type": "bloodtype",
+            "person": "Ava"
+        }
+    ]
+}

@@ -1,0 +1,35 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Noel",
+            "object": "Ahmed"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Noel",
+            "object": "Ahmed"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Noel",
+            "object": "Zeinab"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Ahmed",
+            "result-1": "B",
+            "person-2": "Zeinab",
+            "result-2": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Noel"
+        }
+    ]
+}

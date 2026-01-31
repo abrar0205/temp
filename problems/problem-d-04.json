@@ -1,0 +1,35 @@
+{
+    "family-tree": [
+        {
+            "relation": "father-of",
+            "subject": "Mehmet",
+            "object": "Brian"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Mehmet",
+            "object": "Brian"
+        },
+        {
+            "relation": "father-of",
+            "subject": "Mehmet",
+            "object": "Brian"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "pair-bloodtype-test",
+            "person-1": "Brian",
+            "result-1": "A",
+            "person-2": "Mehmet",
+            "result-2": "A"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Brian"
+        }
+    ]
+}

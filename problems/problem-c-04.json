@@ -1,0 +1,44 @@
+{
+    "family-tree": [
+        {
+            "relation": "mother-of",
+            "subject": "Zeinab",
+            "object": "Leslie"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Zeinab",
+            "object": "Yufei"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Zeinab",
+            "object": "Lindsay"
+        },
+        {
+            "relation": "mother-of",
+            "subject": "Zeinab",
+            "object": "Calvin"
+        }
+    ],
+    "country": "North Wumponia",
+    "test-results": [
+        {
+            "type": "bloodtype-test",
+            "person": "Calvin",
+            "result": "A"
+        },
+        {
+            "type": "mixed-bloodtype-test",
+            "person-1": "Yufei",
+            "person-2": "Zeinab",
+            "result": "AB"
+        }
+    ],
+    "queries": [
+        {
+            "type": "bloodtype",
+            "person": "Yufei"
+        }
+    ]
+}
