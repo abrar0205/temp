@@ -91,34 +91,23 @@ services:
     restart: unless-stopped
 
   mlflow:
-    image: registry.gitlab.com/morris-darren.babu/mlflow-oidc-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: mlflow-server
     command: 
       - mlflow
       - server
       - --host=0.0.0.0
       - --port=5000
-      - --app-name=oidc-auth
+      - --app-name=basic-auth
       - --backend-store-uri=postgresql://mlflow:mlflow123@postgres:5432/mlflow
       - --default-artifact-root=s3://mlflow-artifacts
     environment:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin123}
       MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL:-http://minio:9000}
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-mlflow}
-      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
-      OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-http://keycloak:8080/realms/mlflow/.well-known/openid-configuration}
-      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-http://localhost:5000/callback}
-      OIDC_SCOPE: "openid profile email"
-      OIDC_ADMIN_GROUP_NAME: ${OIDC_ADMIN_GROUP_NAME:-mlflow-admins}
-      OIDC_GROUP_NAME: ${OIDC_GROUP_NAME:-mlflow-users}
-      REDIS_URL: redis://redis:6379/0
-      SESSION_TYPE: redis
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      REDIS_DB: "0"
       SECRET_KEY: ${SECRET_KEY}
-      OAUTHLIB_INSECURE_TRANSPORT: "1"
     ports:
       - "${MLFLOW_PORT:-5000}:5000"
     networks:
@@ -129,8 +118,6 @@ services:
       postgres:
         condition: service_healthy
       minio:
-        condition: service_healthy
-      keycloak:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/5000"]

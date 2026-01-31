@@ -1,0 +1,25 @@
+# Environment files with secrets
+.env
+*.env.local
+
+# Keep template
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Docker volumes (if local)
+postgres_data/
+minio_data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
