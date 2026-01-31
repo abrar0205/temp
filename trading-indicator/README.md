@@ -55,7 +55,8 @@ The UMCI is a multi-confirmation trading indicator that combines:
 trading-indicator/
 ├── pinescript/
 │   ├── universal_trading_indicator.pine    # TradingView indicator
-│   └── universal_trading_strategy.pine     # TradingView strategy (backtesting)
+│   ├── universal_trading_strategy.pine     # TradingView strategy (backtesting)
+│   └── ultimate_indicator_v2.pine          # 🆕 Ultimate Pine Script v2
 ├── python/
 │   ├── backtest.py                         # Original backtesting framework
 │   ├── improved_strategy.py                # Research-based improved strategy
@@ -65,13 +66,34 @@ trading-indicator/
 │   ├── regime_detection.py                 # 🆕 ADX-based regime detection
 │   ├── realtime_data.py                    # 🆕 yfinance/NSE data integration
 │   ├── streamlit_dashboard.py              # 🆕 Web dashboard
+│   ├── ultimate_trading_engine.py          # 🆕 Unified trading engine
+│   ├── advanced_risk_management.py         # 🆕 Kelly, VAR, drawdown control
+│   ├── auto_optimizer.py                   # 🆕 Grid search, walk-forward optimization
+│   ├── run_ultimate.py                     # 🆕 One-click runner
+│   ├── candlestick_patterns.py             # 🆕 20+ candlestick patterns
+│   ├── divergence_detector.py              # 🆕 RSI/MACD/Stoch divergence
+│   ├── smart_money_concepts.py             # 🆕 FVG, Order Blocks, BOS/CHOCH
+│   ├── portfolio_optimizer.py              # 🆕 Markowitz, Risk Parity, Kelly
+│   ├── zerodha_integration.py              # 🆕 Kite API (paper + live)
+│   ├── performance_benchmark.py            # 🆕 Strategy comparison & stats
 │   └── requirements.txt                    # Python dependencies
 ├── docs/
 │   ├── RESEARCH_REPORT.md                  # Detailed research methodology
 │   ├── SETUP_GUIDE.md                      # Installation instructions
 │   ├── TRADING_MANUAL.md                   # Complete trading guide
 │   ├── RISK_DISCLOSURE.md                  # Risk warnings
+│   ├── ULTIMATE_SYSTEM_GUIDE.md            # 🆕 Ultimate system documentation
+│   ├── GITHUB_WORKFLOWS_GUIDE.md           # 🆕 Automation guide
+│   ├── PROJECT_SUMMARY.md                  # 🆕 Full project summary
 │   └── Ultimate Trading Indicator Research.pdf  # Full research document
+├── .github/workflows/
+│   ├── daily-trading-signals.yml           # Daily signal generation
+│   ├── weekly-backtest-optimization.yml    # 🆕 Weekly backtest
+│   ├── monthly-performance-report.yml      # 🆕 Monthly report
+│   ├── multi-asset-analysis.yml            # 🆕 Multi-asset scanner
+│   ├── live-market-scanner.yml             # 🆕 Live 15-min scanner
+│   ├── alert-notifications.yml             # 🆕 Telegram/Discord alerts
+│   └── code-quality-testing.yml            # 🆕 Lint & test
 └── predictions/                            # Tracked predictions & reports
 ```
 
@@ -126,6 +148,38 @@ python realtime_data.py --list-symbols
 # Streamlit Web Dashboard
 pip install streamlit plotly pandas
 streamlit run streamlit_dashboard.py
+```
+
+### 🆕 Ultimate Trading System
+
+```bash
+# One-click runner for everything
+python run_ultimate.py --symbol NIFTY50
+
+# With all features
+python run_ultimate.py --symbol BANKNIFTY --optimize --ml --full-report
+```
+
+### 🆕 Advanced Analysis Modules
+
+```bash
+# Candlestick Pattern Recognition (20+ patterns)
+python candlestick_patterns.py
+
+# Divergence Detection (RSI, MACD, Stochastic)
+python divergence_detector.py
+
+# Smart Money Concepts (FVG, Order Blocks, Liquidity)
+python smart_money_concepts.py
+
+# Portfolio Optimization (Markowitz, Risk Parity, Kelly)
+python portfolio_optimizer.py
+
+# Performance Benchmark (compare strategies)
+python performance_benchmark.py
+
+# Zerodha Integration (paper trading)
+python zerodha_integration.py
 ```
 
 ### Automated Daily Signals (GitHub Actions)
