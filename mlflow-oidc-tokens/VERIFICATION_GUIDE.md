@@ -2,7 +2,20 @@
 
 This document provides **complete step-by-step verification** for all Definition of Done (DoD) items.
 
-> ⚠️ **Important Research Finding**: After reviewing the latest `mlflow-oidc-auth` v6.6.4 source code, I found:
+## ✅ Verification Status
+
+| Component | Status | Evidence |
+|-----------|--------|----------|
+| MLflow UI running | ✅ VERIFIED | [Screenshot](https://github.com/user-attachments/assets/1f5ab6ab-0abc-4c65-893a-84d674871b73) |
+| PostgreSQL backend | ✅ VERIFIED | API returns experiments from database |
+| MinIO artifacts | ✅ VERIFIED | Container healthy on ports 9000/9001 |
+| Keycloak OIDC | 🔧 Requires your private image | See Step 1.2 below |
+
+![MLflow UI Running](https://github.com/user-attachments/assets/1f5ab6ab-0abc-4c65-893a-84d674871b73)
+
+---
+
+> ⚠️ **Important Research Finding**: After reviewing the latest `mlflow-oidc-auth` v6.6.4 source code:
 > - **Token Creation**: ✅ Available via UI and API
 > - **Token Listing**: ❌ NOT available (only expiration date shown in user profile)
 > - **Token Deletion**: ❌ NOT available (creating new token overwrites old one)
