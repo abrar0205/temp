@@ -1,0 +1,12 @@
+[
+  {
+    "type": "bloodtype",
+    "person": "Daniel",
+    "distribution": {
+      "O": 0.075,
+      "A": 0.15,
+      "B": 0.425,
+      "AB": 0.35
+    }
+  }
+]
