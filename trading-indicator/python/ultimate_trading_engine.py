@@ -838,6 +838,14 @@ class UltimateTradingEngine:
         print("BACKTEST RESULTS")
         print("=" * 60)
         
+        # Handle case where no trades were executed
+        if 'error' in results:
+            print(f"\n⚠️  {results['error']}")
+            print("   Market conditions did not trigger any trades.")
+            print("   Consider adjusting parameters or using a longer period.")
+            print("\n" + "=" * 60)
+            return
+        
         print(f"\n{'PERFORMANCE METRICS':^60}")
         print("-" * 60)
         print(f"Total Trades:           {results['total_trades']}")

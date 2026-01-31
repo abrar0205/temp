@@ -508,5 +508,9 @@ def main():
     print("\n✅ Data fetch complete!")
 
 
+# Alias for backwards compatibility with other modules
+RealTimeDataFetcher = DataManager
+
+
 if __name__ == "__main__":
     main()

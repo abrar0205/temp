@@ -144,11 +144,20 @@ def fetch_data(symbol: str, timeframe: str, period: str) -> pd.DataFrame:
     try:
         from realtime_data import RealTimeDataFetcher
         fetcher = RealTimeDataFetcher()
-        df = fetcher.get_data(symbol, timeframe, period)
+        data = fetcher.get_data(symbol, timeframe, period)
         
-        if df is not None and len(df) > 100:
-            print(f"  ✓ Fetched {len(df)} bars of real data")
-            return df
+        if data is not None and len(data) > 100:
+            print(f"  ✓ Fetched {len(data)} bars of real data")
+            
+            # Convert list of dicts to DataFrame
+            if isinstance(data, list):
+                df = pd.DataFrame(data)
+                if 'date' in df.columns:
+                    df['date'] = pd.to_datetime(df['date'])
+                    df.set_index('date', inplace=True)
+                return df
+            elif isinstance(data, pd.DataFrame):
+                return data
     except Exception as e:
         print(f"  ⚠ Real data fetch failed: {e}")
     
