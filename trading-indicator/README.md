@@ -12,6 +12,33 @@ The UMCI is a multi-confirmation trading indicator that combines:
 - **Volatility**: ATR-based stop loss and take profit
 - **Volume**: 20-period MA confirmation
 
+## 🆕 Advanced Features
+
+### Machine Learning Signal Filter
+- **Random Forest**: Quick classification of signal quality (100 trees, 10 depth)
+- **LSTM**: Price direction prediction using sequence modeling
+- **Ensemble**: Combines both models for higher accuracy
+
+### Multi-Timeframe Analysis (MTF)
+- Aligns signals across 15m, 1H, 4H, and Daily timeframes
+- Higher timeframe defines trend, lower timeframe provides entry
+- Signal strength based on timeframe agreement
+
+### Market Regime Detection
+- **ADX-based** trend strength measurement
+- Regimes: Strong Trend, Weak Trend, Ranging, High/Low Volatility, Breakout
+- Auto-adjusts position size and stop loss based on regime
+
+### Real-Time Data Integration
+- **yfinance**: Global stocks, indices, forex, crypto, commodities
+- Supports: NIFTY50, BANKNIFTY, TCS, RELIANCE, AAPL, GOOGL, GOLD, BTC
+- Cache system for efficient data fetching
+
+### Streamlit Web Dashboard
+- Interactive candlestick charts with Plotly
+- Real-time indicator overlays (EMAs, SuperTrend, RSI)
+- ML signals, MTF analysis, and regime detection display
+
 ## Features
 
 - Research-validated strategy with realistic expectations (42-48% win rate, 1.8-2.2 profit factor)
@@ -32,7 +59,13 @@ trading-indicator/
 ├── python/
 │   ├── backtest.py                         # Original backtesting framework
 │   ├── improved_strategy.py                # Research-based improved strategy
-│   └── prediction_validator.py             # Prediction tracking & validation
+│   ├── prediction_validator.py             # Prediction tracking & validation
+│   ├── ml_signal_filter.py                 # 🆕 Random Forest + LSTM ML filter
+│   ├── multi_timeframe.py                  # 🆕 Multi-timeframe analysis
+│   ├── regime_detection.py                 # 🆕 ADX-based regime detection
+│   ├── realtime_data.py                    # 🆕 yfinance/NSE data integration
+│   ├── streamlit_dashboard.py              # 🆕 Web dashboard
+│   └── requirements.txt                    # Python dependencies
 ├── docs/
 │   ├── RESEARCH_REPORT.md                  # Detailed research methodology
 │   ├── SETUP_GUIDE.md                      # Installation instructions
@@ -56,6 +89,9 @@ trading-indicator/
 ```bash
 cd trading-indicator/python
 
+# Install dependencies
+pip install -r requirements.txt
+
 # Run improved strategy with Monte Carlo and walk-forward analysis
 python improved_strategy.py --symbol NIFTY50 --start 2022-01-01 --end 2025-12-31 \
     --monte-carlo --walk-forward --output results.json
@@ -68,6 +104,28 @@ python prediction_validator.py --mode validate --symbol NIFTY50 --storage predic
 
 # Generate performance report
 python prediction_validator.py --mode report --symbol NIFTY50 --storage predictions.json
+```
+
+### 🆕 Advanced Modules
+
+```bash
+# Machine Learning Signal Filter (Random Forest + LSTM)
+python ml_signal_filter.py --mode demo
+
+# Multi-Timeframe Analysis
+python multi_timeframe.py --demo
+
+# Market Regime Detection
+python regime_detection.py --demo
+
+# Real-Time Data Fetching
+python realtime_data.py --symbol NIFTY50 --timeframe 1d --period 6mo
+python realtime_data.py --symbol AAPL --realtime
+python realtime_data.py --list-symbols
+
+# Streamlit Web Dashboard
+pip install streamlit plotly pandas
+streamlit run streamlit_dashboard.py
 ```
 
 ### Automated Daily Signals (GitHub Actions)
