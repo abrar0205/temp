@@ -1,290 +1,201 @@
 # MLflow OIDC Access Token Guide
 
-This guide documents how to use access tokens with the MLflow OIDC deployment for programmatic access to experiment results.
+This guide explains **where** and **how** to manage access tokens for MLflow OIDC authentication.
 
-## Overview
+> **Note**: The MLflow deployment exists at `Mlflow_docker/` on the main branch.
 
-The MLflow OIDC setup (located in `Mlflow_docker/`) uses Keycloak as the identity provider. Users can:
-1. **Create access tokens** via Keycloak token endpoint or UI
-2. **Access experiment results** using tokens with the MLflow Python SDK or REST API
-3. **List and delete tokens** via Keycloak Admin Console/API
+---
 
-## Prerequisites
+## Quick Reference
 
-- MLflow OIDC deployment running (see `Mlflow_docker/readme.md`)
-- Keycloak realm `mlflow` configured with client `mlflow`
-- User account in Keycloak with `mlflow_users` or `mlflow_admins` group membership
+| Task | Where | How |
+|------|-------|-----|
+| Create Token | Keycloak Token Endpoint | `curl` command or login via UI |
+| Use Token | MLflow API/SDK | `Authorization: Bearer <token>` header |
+| List Tokens | Keycloak Admin Console | Sessions menu |
+| Delete Tokens | Keycloak Admin Console | Sessions → Sign out |
+| Configure Token Expiry | Keycloak Admin Console | Realm Settings → Tokens |
 
-## Creating Access Tokens
+---
 
-### Method 1: Password Grant (CLI)
+## 1. Creating Access Tokens
 
-Get an access token using your Keycloak credentials:
+### Where
+**Keycloak Token Endpoint**: `http://localhost:8080/realms/mlflow/protocol/openid-connect/token`
 
+### How
+
+**Option A: Using curl (CLI)**
 ```bash
-# Get access token
-ACCESS_TOKEN=$(curl -s -X POST "http://localhost:8080/realms/mlflow/protocol/openid-connect/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
+curl -X POST "http://localhost:8080/realms/mlflow/protocol/openid-connect/token" \
   -d "grant_type=password" \
   -d "client_id=mlflow" \
-  -d "client_secret=${OIDC_CLIENT_SECRET}" \
+  -d "client_secret=YOUR_CLIENT_SECRET" \
   -d "username=mlflow_user" \
-  -d "******" | jq -r '.access_token')
-
-echo "Access Token: $ACCESS_TOKEN"
+  -d "password=password123"
 ```
 
-### Method 2: Service Account Token (for automation)
+Response contains:
+```json
+{
+  "access_token": "eyJhbGciOiJS...",
+  "refresh_token": "eyJhbGciOiJS...",
+  "expires_in": 300
+}
+```
 
-For automated systems, use service account credentials:
+**Option B: Login via MLflow UI**
+1. Go to http://localhost:5000
+2. Click "Login with Keycloak"
+3. Enter credentials
+4. Token is automatically managed by the browser session
 
+---
+
+## 2. Using Tokens to Access Experiments
+
+### Where
+**MLflow API**: `http://localhost:5000/api/2.0/mlflow/`
+
+### How
+
+**List Experiments**
 ```bash
-# Get service account token (client credentials grant)
-ACCESS_TOKEN=$(curl -s -X POST "http://localhost:8080/realms/mlflow/protocol/openid-connect/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=mlflow" \
-  -d "client_secret=${OIDC_CLIENT_SECRET}" | jq -r '.access_token')
-```
-
-> **Note**: Service accounts require additional Keycloak configuration (enable "Service Accounts Enabled" in client settings).
-
-### Method 3: Keycloak Admin Console
-
-1. Go to http://localhost:8080/admin
-2. Select the `mlflow` realm
-3. Navigate to Clients → `mlflow` → Credentials
-4. Generate a new client secret if needed
-
-## Accessing Experiment Results Using Tokens
-
-### Using MLflow Python SDK
-
-```python
-import os
-import mlflow
-import requests
-
-def get_access_token(username, password, client_secret):
-    """Get access token from Keycloak."""
-    response = requests.post(
-        "http://localhost:8080/realms/mlflow/protocol/openid-connect/token",
-        data={
-            "grant_type": "password",
-            "client_id": "mlflow",
-            "client_secret": client_secret,
-            "username": username,
-            "password": password,
-        }
-    )
-    response.raise_for_status()
-    return response.json()["access_token"]
-
-# Get token
-token = get_access_token("mlflow_user", "password123", os.getenv("OIDC_CLIENT_SECRET"))
-
-# Configure MLflow to use the token
-os.environ["MLFLOW_TRACKING_TOKEN"] = token
-mlflow.set_tracking_uri("http://localhost:5000")
-
-# Now you can access experiments
-experiments = mlflow.search_experiments()
-for exp in experiments:
-    print(f"Experiment: {exp.name} (ID: {exp.experiment_id})")
-
-# Search runs
-runs = mlflow.search_runs(experiment_ids=["0"])
-print(runs)
-
-# Log metrics (if you have write permissions)
-with mlflow.start_run():
-    mlflow.log_metric("accuracy", 0.95)
-    mlflow.log_param("learning_rate", 0.01)
-```
-
-### Using REST API with curl
-
-```bash
-# Set your access token
-export ACCESS_TOKEN="your-token-here"
-
-# List experiments
 curl -X POST "http://localhost:5000/api/2.0/mlflow/experiments/search" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{}'
+```
 
-# Get specific experiment
-curl "http://localhost:5000/api/2.0/mlflow/experiments/get?experiment_id=0" \
-  -H "Authorization: Bearer $ACCESS_TOKEN"
-
-# Search runs in an experiment
+**Get Runs from Experiment**
+```bash
 curl -X POST "http://localhost:5000/api/2.0/mlflow/runs/search" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"experiment_ids": ["0"]}'
-
-# Create a new experiment
-curl -X POST "http://localhost:5000/api/2.0/mlflow/experiments/create" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-new-experiment"}'
 ```
 
-## Listing and Deleting Tokens
+**Create Experiment**
+```bash
+curl -X POST "http://localhost:5000/api/2.0/mlflow/experiments/create" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-experiment"}'
+```
 
-### ⚠️ Important Note on Token Management
+---
 
-**MLflow OIDC Auth does NOT provide a UI for listing/deleting tokens.** Token management is handled entirely through Keycloak.
+## 3. Listing Tokens (Active Sessions)
 
-As of mlflow-oidc-auth version 5.6.x:
-- No built-in token listing UI
-- No built-in token revocation UI
-- Tokens are OAuth2 tokens managed by Keycloak
+### Where
+**Keycloak Admin Console**: http://localhost:8080/admin
 
-### Listing Active Sessions/Tokens via Keycloak Admin Console
+### How
 
 1. Go to http://localhost:8080/admin
-2. Select the `mlflow` realm
-3. Navigate to **Sessions** in the left menu
-4. View all active sessions across users
+2. Login with admin credentials (from `.env` file)
+3. Select **mlflow** realm (dropdown in top-left)
+4. Click **Sessions** in the left menu
+5. View all active sessions/tokens
 
-### Listing Tokens via Keycloak Admin API
+![Sessions Location](https://www.keycloak.org/docs/latest/server_admin/images/sessions.png)
 
+**Alternative: Using curl**
 ```bash
-# Get admin token first
+# First, get admin token
 ADMIN_TOKEN=$(curl -s -X POST "http://localhost:8080/realms/master/protocol/openid-connect/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin" \
-  -d "******" \
   -d "grant_type=password" \
-  -d "client_id=admin-cli" | jq -r '.access_token')
+  -d "client_id=admin-cli" \
+  -d "username=admin" \
+  -d "password=YOUR_ADMIN_PASSWORD" | jq -r '.access_token')
 
-# Get user ID
-USER_ID=$(curl -s "http://localhost:8080/admin/realms/mlflow/users?username=mlflow_user" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.[0].id')
-
-# List user's sessions (tokens)
-curl -s "http://localhost:8080/admin/realms/mlflow/users/$USER_ID/sessions" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | jq
-
-# List all client sessions
-CLIENT_UUID=$(curl -s "http://localhost:8080/admin/realms/mlflow/clients?clientId=mlflow" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.[0].id')
-
-curl -s "http://localhost:8080/admin/realms/mlflow/clients/$CLIENT_UUID/user-sessions" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | jq
+# List all sessions for mlflow client
+curl -s "http://localhost:8080/admin/realms/mlflow/clients" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" | jq '.[].id'
 ```
 
-### Deleting/Revoking Tokens
+---
 
-#### Via Keycloak Admin Console
-1. Go to Sessions
-2. Find the session to revoke
-3. Click "Sign out" or "Logout all"
+## 4. Deleting/Revoking Tokens
 
-#### Via Keycloak Admin API
+### Where
+**Keycloak Admin Console**: http://localhost:8080/admin → Sessions
 
+### How
+
+**Option A: Via Admin Console (Recommended)**
+1. Go to http://localhost:8080/admin
+2. Select **mlflow** realm
+3. Click **Sessions**
+4. Find the session to revoke
+5. Click **Sign out** (for single session) or **Sign out all sessions**
+
+**Option B: Revoke All Sessions for a User**
+1. Go to **Users** in left menu
+2. Click on the user
+3. Go to **Sessions** tab
+4. Click **Sign out all sessions**
+
+**Option C: Using curl**
 ```bash
-# Logout a specific user (revokes all their tokens)
+# Logout specific user (revokes all their tokens)
+USER_ID="user-uuid-here"
 curl -X POST "http://localhost:8080/admin/realms/mlflow/users/$USER_ID/logout" \
   -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# Revoke a specific session
-SESSION_ID="session-id-here"
-curl -X DELETE "http://localhost:8080/admin/realms/mlflow/sessions/$SESSION_ID" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
-#### Via Token Revocation Endpoint (Self-revocation)
+---
 
-```bash
-# Revoke your own token
-curl -X POST "http://localhost:8080/realms/mlflow/protocol/openid-connect/revoke" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "client_id=mlflow" \
-  -d "client_secret=${OIDC_CLIENT_SECRET}" \
-  -d "token=$ACCESS_TOKEN"
-```
+## 5. Token Expiry Configuration
 
-## Token Management Capabilities Summary
+### Where
+**Keycloak Admin Console**: http://localhost:8080/admin → Realm Settings → Tokens
 
-| Feature | MLflow OIDC UI | Keycloak Admin Console | Keycloak Admin API |
-|---------|----------------|------------------------|-------------------|
-| Create Token | ❌ | ❌ (use token endpoint) | ✅ |
-| Use Token | ✅ | N/A | N/A |
-| List Tokens | ❌ | ✅ (Sessions view) | ✅ |
-| Revoke Token | ❌ | ✅ | ✅ |
-| Token Expiry Config | ❌ | ✅ | ✅ |
+### How
 
-### Configuring Token Expiration
+1. Go to http://localhost:8080/admin
+2. Select **mlflow** realm
+3. Click **Realm Settings** in left menu
+4. Click **Tokens** tab
+5. Configure:
+   - **Access Token Lifespan**: How long access tokens are valid (default: 5 minutes)
+   - **SSO Session Idle**: Idle timeout (default: 30 minutes)
+   - **SSO Session Max**: Maximum session duration (default: 10 hours)
 
-In Keycloak Admin Console:
-1. Go to Realm Settings → Tokens
-2. Configure:
-   - **Access Token Lifespan** (default: 5 minutes)
-   - **SSO Session Idle** (default: 30 minutes)
-   - **SSO Session Max** (default: 10 hours)
+---
 
-For longer-lived tokens, consider using refresh tokens:
+## Important Notes
 
-```bash
-# Get tokens with refresh token
-TOKENS=$(curl -s -X POST "http://localhost:8080/realms/mlflow/protocol/openid-connect/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=password" \
-  -d "client_id=mlflow" \
-  -d "client_secret=${OIDC_CLIENT_SECRET}" \
-  -d "username=mlflow_user" \
-  -d "******")
+### Token Listing/Deletion in MLflow OIDC
 
-ACCESS_TOKEN=$(echo $TOKENS | jq -r '.access_token')
-REFRESH_TOKEN=$(echo $TOKENS | jq -r '.refresh_token')
+⚠️ **As of mlflow-oidc-auth version 5.6.x:**
+- There is **NO built-in UI** in MLflow for listing tokens
+- There is **NO built-in UI** in MLflow for deleting tokens
+- All token management must be done through **Keycloak Admin Console**
 
-# Refresh the access token when it expires
-NEW_TOKENS=$(curl -s -X POST "http://localhost:8080/realms/mlflow/protocol/openid-connect/token" \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=refresh_token" \
-  -d "client_id=mlflow" \
-  -d "client_secret=${OIDC_CLIENT_SECRET}" \
-  -d "refresh_token=$REFRESH_TOKEN")
+Check [mlflow-oidc-auth releases](https://github.com/mlflow-oidc/mlflow-oidc-auth/releases) for updates on these features.
 
-NEW_ACCESS_TOKEN=$(echo $NEW_TOKENS | jq -r '.access_token')
-```
+---
 
-## Future: Token Management in Newer mlflow-oidc-auth Versions
+## Summary Table
 
-As of the current version (5.6.x), mlflow-oidc-auth does **not** provide:
-- Token listing UI
-- Token revocation UI
-- Personal access tokens (like GitHub PATs)
+| Operation | Where to Go | What to Click/Do |
+|-----------|-------------|------------------|
+| **Create Token** | Terminal | Run `curl` command to token endpoint |
+| **Use Token** | Terminal/Code | Add `Authorization: Bearer <token>` header |
+| **List Tokens** | http://localhost:8080/admin | Realm → Sessions |
+| **Delete Token** | http://localhost:8080/admin | Sessions → Sign out |
+| **Delete All User Tokens** | http://localhost:8080/admin | Users → [user] → Sessions → Sign out all |
+| **Set Token Expiry** | http://localhost:8080/admin | Realm Settings → Tokens |
 
-Check the [mlflow-oidc-auth releases](https://github.com/mlflow-oidc/mlflow-oidc-auth/releases) for updates on these features.
+---
 
-For enterprise token management needs, consider:
-1. Using Keycloak's built-in session management
-2. Implementing a custom token proxy
-3. Using Keycloak's offline tokens for long-lived access
+## URLs Reference
 
-## Troubleshooting
-
-### "Invalid token" error
-- Token may have expired (default: 5 minutes)
-- Use refresh token to get a new access token
-- Check token was issued for the correct realm/client
-
-### "Unauthorized" error when using SDK
-- Ensure `MLFLOW_TRACKING_TOKEN` environment variable is set
-- Verify token hasn't expired
-- Check user has correct group membership in Keycloak
-
-### Token not being recognized
-- Ensure you're using `Bearer` prefix in Authorization header
-- Check `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` match between token request and MLflow config
-
-## References
-
-- [MLflow OIDC Auth Documentation](https://github.com/mlflow-oidc/mlflow-oidc-auth)
-- [Keycloak Admin REST API](https://www.keycloak.org/docs-api/23.0.0/rest-api/)
-- [OAuth 2.0 Token Endpoint](https://www.keycloak.org/docs/latest/securing_apps/index.html#token-endpoint)
-- Existing setup: `Mlflow_docker/` directory on main branch
+| Service | URL | Purpose |
+|---------|-----|---------|
+| MLflow UI | http://localhost:5000 | Experiment tracking UI |
+| MLflow API | http://localhost:5000/api/2.0/mlflow/ | REST API |
+| Keycloak Admin | http://localhost:8080/admin | Token & user management |
+| Keycloak Token Endpoint | http://localhost:8080/realms/mlflow/protocol/openid-connect/token | Get access tokens |
+| MinIO Console | http://localhost:9001 | Artifact storage |
